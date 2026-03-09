@@ -31,10 +31,12 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     iproute2 \
     traceroute \
     tailscale \
+    qemu-guest-agent \
+    grub \
     && pacman -S --clean --noconfirm
 
 # Enable services
-RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled
+RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0
 
 # Timezone and locale
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
@@ -42,13 +44,17 @@ RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
     locale-gen && \
     echo "LANG=en_US.UTF-8" > /etc/locale.conf
 
+# Network - DHCP on all ethernet interfaces (Hetzner Cloud)
+RUN printf '[Match]\nType=ether\n\n[Network]\nDHCP=yes\nIPv6AcceptRA=yes\n\n[DHCPv4]\nUseDNS=yes\nUseNTP=yes\n' \
+    > /usr/lib/systemd/network/20-ethernet.network
+
 # Create user bupd with zsh
 RUN useradd -m -G wheel -s /bin/zsh bupd && \
     echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel
 
 # SSH config - key-based auth only
 RUN mkdir -p /etc/ssh/sshd_config.d && \
-    printf 'PermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\n' \
+    printf 'PermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\nAllowUsers bupd\n' \
     > /etc/ssh/sshd_config.d/10-hetzner.conf
 
 # SSH authorized key for bupd
