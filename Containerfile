@@ -30,10 +30,11 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     net-tools \
     iproute2 \
     traceroute \
+    tailscale \
     && pacman -S --clean --noconfirm
 
 # Enable services
-RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd
+RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled
 
 # Timezone and locale
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
