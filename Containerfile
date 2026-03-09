@@ -84,14 +84,10 @@ RUN curl -fsSL https://bun.sh/install | bash -s -- --no-modify-path && \
     ln -sf /usr/local/share/bun/bin/bun /usr/local/bin/bun && \
     ln -sf /usr/local/share/bun/bin/bunx /usr/local/bin/bunx
 
-# Claude Code (native binary, auto-updates)
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
 # Homebrew
 RUN --mount=type=tmpfs,dst=/tmp \
-    useradd -m -s /bin/bash linuxbrew && \
-    NONINTERACTIVE=1 HOME=/var/home/bupd /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
-    userdel linuxbrew && \
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
+    /home/linuxbrew/.linuxbrew/bin/brew install claude-code && \
     chown -R bupd:bupd /home/linuxbrew 2>/dev/null || true
 
 # Git config
@@ -230,8 +226,9 @@ export EDITOR='nvim'
 export PATH="$HOME/.local/bin:$PATH"
 
 # Go
-export PATH="/usr/local/go/bin:$PATH"
-export PATH="$HOME/go/bin:$PATH"
+export GOPATH="$HOME/go"
+export GOBIN="$GOPATH/bin"
+export PATH="/usr/lib/go/bin:/usr/local/go/bin:$GOPATH/bin:$PATH"
 
 # Bun
 export BUN_INSTALL="$HOME/.bun"
