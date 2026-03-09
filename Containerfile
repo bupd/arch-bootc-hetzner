@@ -35,6 +35,8 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     grub \
     less \
     lazygit \
+    podman-docker \
+    podman-compose \
     && pacman -S --clean --noconfirm
 
 # Enable services
