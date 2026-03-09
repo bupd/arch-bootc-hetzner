@@ -62,7 +62,8 @@ RUN mkdir -p /var/home/bupd/.ssh && chmod 700 /var/home/bupd/.ssh && \
     echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDgOxVumFr4SNyhIXl5dfCYlZBON3EApcxrcBq3wvR/3BuY1jqJtmlppNffht6qmbAVOnJvJCxfQuWc5ju8O9/GSorVq+1qFmiIjIJv8hnqxed2BbHqko7jB1fgG3aDFUN6UhySYF2fBEcKWbAZEntOEuWo/ZrJyM2a/ktVd6aZrKghZ8HpN+PnX73ubYSTCrNUiAnDOssFJs6hpuPbAGUcTmG9E48kGKmbzBCRnxDbWotafwLj9PmTRT3e1TABRljd+UYnVkAmqXWFqEV12rMOZgPz/Lw6oKzrHdCUs1a325zpaek8Ffe3pzZtHIYERrft4pdTtnnaZQwoSxVkWaLvnBeuB1xqmDsGlF1xWNmMBbOanWZcwLIWkaVUaS/dvOju9xWGmOhhMjeUoMQodlPF+epwS5Iop2atm/uWzsGJBeZCGC/Yvcm8qgXo8EOWhHWjqopzVVr892QXrtwvOf6O+/7iVgYTtvoeNh9dAbiYbqFaJvLjIMOQ7UfzHtaO9Gc=" \
     > /var/home/bupd/.ssh/authorized_keys && \
     chmod 600 /var/home/bupd/.ssh/authorized_keys && \
-    chown -R bupd:bupd /var/home/bupd/.ssh
+    chown -R bupd:bupd /var/home/bupd/.ssh && \
+    mkdir -p /var/home/bupd/code && chown bupd:bupd /var/home/bupd/code
 
 # Git config
 RUN printf '[user]\n\tname = bupd\n\temail = bupdprasanth@gmail.com\n\tsigningkey = 3B12C777AE568D09\n[core]\n\teditor = nvim\n[pull]\n\trebase = true\n[merge]\n\ttool = nvimdiff\n[diff]\n\ttool = nvimdiff\n\tcolorMoved = default\n[rerere]\n\tenabled = true\n\tautoUpdate = true\n[commit]\n\tgpgsign = true\n[tag]\n\tgpgsign = true\n[gpg]\n\tprogram = gpg\n' \
