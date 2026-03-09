@@ -23,8 +23,6 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     gcc \
     make \
     unzip \
-    nodejs \
-    npm \
     gnupg \
     rsync \
     net-tools \
@@ -37,6 +35,17 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     lazygit \
     podman-docker \
     podman-compose \
+    kubectl \
+    helm \
+    k9s \
+    yq \
+    gopls \
+    python \
+    lua \
+    luarocks \
+    tree \
+    lsof \
+    man-db \
     && pacman -S --clean --noconfirm
 
 # Enable services
@@ -68,6 +77,22 @@ RUN mkdir -p /var/home/bupd/.ssh && chmod 700 /var/home/bupd/.ssh && \
     chmod 600 /var/home/bupd/.ssh/authorized_keys && \
     chown -R bupd:bupd /var/home/bupd/.ssh && \
     mkdir -p /var/home/bupd/code && chown bupd:bupd /var/home/bupd/code
+
+# Bun
+RUN curl -fsSL https://bun.sh/install | bash -s -- --no-modify-path && \
+    mv /root/.bun /usr/local/share/bun && \
+    ln -sf /usr/local/share/bun/bin/bun /usr/local/bin/bun && \
+    ln -sf /usr/local/share/bun/bin/bunx /usr/local/bin/bunx
+
+# Claude Code (native binary, auto-updates)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Homebrew
+RUN --mount=type=tmpfs,dst=/tmp \
+    useradd -m -s /bin/bash linuxbrew && \
+    NONINTERACTIVE=1 HOME=/var/home/bupd /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
+    userdel linuxbrew && \
+    chown -R bupd:bupd /home/linuxbrew 2>/dev/null || true
 
 # Git config
 RUN printf '[user]\n\tname = bupd\n\temail = bupdprasanth@gmail.com\n\tsigningkey = EFD822952819E418\n[core]\n\teditor = nvim\n[pull]\n\trebase = true\n[merge]\n\ttool = nvimdiff\n[diff]\n\ttool = nvimdiff\n\tcolorMoved = default\n[rerere]\n\tenabled = true\n\tautoUpdate = true\n[commit]\n\tgpgsign = true\n[tag]\n\tgpgsign = true\n[gpg]\n\tprogram = gpg\n' \
@@ -207,6 +232,13 @@ export PATH="$HOME/.local/bin:$PATH"
 # Go
 export PATH="/usr/local/go/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
+
+# Bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:/usr/local/share/bun/bin:$PATH"
+
+# Homebrew
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv 2>/dev/null)"
 
 # GPG tty for signing
 export GPG_TTY=$(tty)
