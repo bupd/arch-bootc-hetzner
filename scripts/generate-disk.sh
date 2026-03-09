@@ -27,7 +27,7 @@ fi
 echo ""
 echo "## Running bootc install to-disk"
 sudo podman run \
-    --rm --privileged --pid=host \
+    --rm --privileged --pid=host --network=host \
     -v /var/lib/containers:/var/lib/containers \
     -v /etc/containers:/etc/containers \
     -v /dev:/dev \

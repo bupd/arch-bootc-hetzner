@@ -22,7 +22,7 @@ sudo podman login "$REGISTRY_HOST" -u "$USERNAME" -p "$PASSWORD"
 
 echo ""
 echo "## Building base image (this compiles bootc from source, ~20-40 min)"
-sudo podman build -f "$REPO_DIR/Containerfile.base" -t arch-bootc:latest "$REPO_DIR"
+sudo podman build --network=host -f "$REPO_DIR/Containerfile.base" -t arch-bootc:latest "$REPO_DIR"
 
 echo ""
 echo "## Tagging base image so Containerfile FROM resolves"
@@ -30,7 +30,7 @@ sudo podman tag arch-bootc:latest ghcr.io/bootcrew/arch-bootc:latest
 
 echo ""
 echo "## Building hetzner image"
-sudo podman build -f "$REPO_DIR/Containerfile" -t "$REGISTRY:latest" "$REPO_DIR"
+sudo podman build --network=host -f "$REPO_DIR/Containerfile" -t "$REGISTRY:latest" "$REPO_DIR"
 
 echo ""
 echo "## Pushing to $REGISTRY:latest"
