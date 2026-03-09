@@ -33,6 +33,8 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     tailscale \
     qemu-guest-agent \
     grub \
+    less \
+    lazygit \
     && pacman -S --clean --noconfirm
 
 # Enable services
@@ -75,6 +77,39 @@ RUN git clone https://github.com/bupd/dotfiles.git /var/home/bupd/dotfiles && \
     cd /var/home/bupd/dotfiles && \
     stow -d /var/home/bupd/dotfiles -t /var/home/bupd . && \
     chown -R bupd:bupd /var/home/bupd
+
+# Server-specific sessionizer (overrides dotfiles version with correct paths)
+COPY --chown=bupd:bupd <<'SESSIONIZER' /var/home/bupd/sessionizer
+#!/usr/bin/env bash
+
+if [[ $# -eq 1 ]]; then
+    selected=$1
+else
+    selected=$(find ~/code/ ~/ -mindepth 1 -maxdepth 1 -type d | fzf)
+fi
+
+if [[ -z $selected ]]; then
+    exit 0
+fi
+
+selected_name=$(basename "$selected" | tr . _)
+tmux_running=$(pgrep tmux)
+
+if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
+    tmux new-session -s $selected_name -c $selected
+    exit 0
+fi
+
+if ! tmux has-session -t=$selected_name 2> /dev/null; then
+    tmux new-session -ds $selected_name -c $selected
+fi
+
+tmux switch-client -t $selected_name
+SESSIONIZER
+RUN chmod +x /var/home/bupd/sessionizer && \
+    mkdir -p /var/home/bupd/.local/bin && \
+    ln -sf /var/home/bupd/sessionizer /var/home/bupd/.local/bin/sessionizer && \
+    chown -R bupd:bupd /var/home/bupd/.local
 
 # Zshrc (not managed by stow per .stow-local-ignore)
 COPY --chown=bupd:bupd <<'ZSHRC' /var/home/bupd/.zshrc
