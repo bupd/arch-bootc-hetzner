@@ -74,5 +74,12 @@ else
     echo "  gpg --import your-private-key.asc"
 fi
 
+## Coding repos
+echo ""
+echo "## Coding repos"
+echo "Run 'setup-repos' after SSH keys are configured to set up:"
+echo "  Harbor bare worktree    -> ~/code/OSS/Harbr/"
+echo "  Satellite bare worktree -> ~/code/OSS/harborSatellite/"
+
 echo ""
 echo "## Done"

@@ -119,7 +119,11 @@ RUN mkdir -p /var/home/bupd/.ssh && chmod 700 /var/home/bupd/.ssh && \
     > /var/home/bupd/.ssh/authorized_keys && \
     chmod 600 /var/home/bupd/.ssh/authorized_keys && \
     chown -R bupd:bupd /var/home/bupd/.ssh && \
-    mkdir -p /var/home/bupd/code && chown bupd:bupd /var/home/bupd/code
+    mkdir -p /var/home/bupd/code/OSS && chown -R bupd:bupd /var/home/bupd/code
+
+# Repo setup script (bare worktrees for Harbor and Satellite)
+COPY files/setup-repos.sh /usr/bin/setup-repos
+RUN chmod +x /usr/bin/setup-repos
 
 # Bun (install to /usr/ so it survives bootc upgrades)
 RUN BUN_INSTALL=/usr curl -fsSL https://bun.sh/install | bash
