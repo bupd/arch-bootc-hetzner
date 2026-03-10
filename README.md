@@ -1,10 +1,28 @@
-# Arch Linux Bootc for Hetzner Cloud
+# Arch Linux Bootable Container (bootc) for Hetzner Cloud
 
-Bootable container (bootc) image for running Arch Linux on Hetzner Cloud VPS servers. Uses [bootcrew/arch-bootc](https://github.com/bootcrew/arch-bootc) as the base image with systemd-boot.
+Deploy **Arch Linux** as an **immutable, image-based OS** on **Hetzner Cloud VPS** servers using [bootc](https://github.com/bootc-dev/bootc) (bootable containers). Build your OS as an OCI container image, flash it to a Hetzner server, and manage upgrades atomically with built-in rollback.
 
-## What is bootc?
+Based on [bootcrew/arch-bootc](https://github.com/bootcrew/arch-bootc) with systemd-boot.
 
-[bootc](https://github.com/bootc-dev/bootc) is an image-based Linux system. Instead of managing packages on a live system, you build an OCI container image and deploy it as the OS. Updates are atomic: `bootc upgrade` stages a new image, reboot switches to it, and the previous image stays as a rollback.
+## Why Use This?
+
+- **Immutable infrastructure** - your server OS is defined in a `Containerfile`, versioned in git, and reproducible
+- **Atomic upgrades** - `bootc upgrade` stages a new image; reboot switches to it; previous image stays as rollback
+- **No manual package management** - packages are baked into the image at build time
+- **Hetzner-ready** - scripts handle UEFI boot, EFI partition setup, disk flashing from rescue mode, and network config
+- **OCI-native** - the OS image is a standard container image stored in any OCI registry
+
+## Features
+
+- Arch Linux running as a bootable OCI container on Hetzner Cloud
+- Automated disk image generation and flashing via rescue mode
+- systemd-boot with automatic kernel and EFI sync
+- Atomic OS upgrades with rollback via `bootc upgrade`
+- k3s (lightweight Kubernetes) with systemd service
+- Tailscale VPN integration
+- UFW firewall with cloud-safe defaults
+- SSH key-only authentication, root login disabled
+- Pre-configured dev environment (Go, Node.js, Neovim, tmux, zsh)
 
 ## Architecture
 
@@ -101,9 +119,6 @@ Then manually:
 # Re-authenticate tailscale
 sudo tailscale up
 
-# Install k3s (optional)
-curl -sfL https://get.k3s.io | sh -
-
 # Import GPG key (for git signing)
 gpg --import your-private-key.asc
 
@@ -111,7 +126,7 @@ gpg --import your-private-key.asc
 sudo hostnamectl set-hostname <new-name>
 ```
 
-## Future Upgrades
+## Upgrades
 
 After updating the Containerfile:
 
@@ -147,20 +162,21 @@ bootc officially targets Fedora/CentOS. Arch support is community-maintained via
 - Default disk is `/dev/sda` (305 GiB QEMU HARDDISK)
 - Rescue mode is Debian-based with oras/zstd available via apt
 - VNC console (Hetzner Console button) is the escape hatch if SSH breaks
-- Consider adding `qemu-guest-agent` to the Containerfile for Hetzner integration (graceful shutdown, IP reporting)
+- `qemu-guest-agent` is included for Hetzner integration (graceful shutdown, IP reporting)
 
-## What's Included
+## Included Software
 
 ### Packages
-openssh, sudo, vim, neovim, htop, btop, curl, wget, git, tmux, zsh, stow, fzf, ripgrep, fd, jq, go, gcc, make, unzip, nodejs, npm, gnupg, rsync, net-tools, iproute2, traceroute, tailscale
+openssh, sudo, vim, neovim, htop, btop, curl, wget, git, tmux, zsh, stow, fzf, ripgrep, fd, jq, go, gcc, make, unzip, nodejs, npm, gnupg, rsync, net-tools, iproute2, traceroute, tailscale, podman, kubectl, helm, k9s, k3s
 
 ### Services (enabled)
-sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled
+sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-guest-agent, ufw, k3s, bootc-sync-esp
 
 ### Security
 - Root login disabled
 - Password auth disabled (key-only SSH)
 - Wheel group with passwordless sudo
+- UFW firewall enabled
 
 ## Credits
 
@@ -168,3 +184,7 @@ sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled
 - [bootc](https://github.com/bootc-dev/bootc) for image-based Linux
 - [oras](https://oras.land/) for OCI artifact distribution
 - [Yorick Peterse's blog post](https://yorickpeterse.com/articles/self-hosting-my-websites-using-bootable-containers/) for inspiration
+
+## License
+
+[MIT](LICENSE)
