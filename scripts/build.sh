@@ -29,6 +29,13 @@ echo "## Tagging base image so Containerfile FROM resolves"
 sudo podman tag arch-bootc:latest ghcr.io/bootcrew/arch-bootc:latest
 
 echo ""
+echo "## Downloading k3s binary"
+K3S_VERSION=$(curl -sfL https://update.k3s.io/v1-release/channels | jq -r '.data[] | select(.id=="stable") | .latest')
+curl -sfL -o "$REPO_DIR/k3s" "https://github.com/k3s-io/k3s/releases/download/$(echo "$K3S_VERSION" | sed 's/+/%2B/g')/k3s"
+chmod +x "$REPO_DIR/k3s"
+echo "Downloaded k3s $K3S_VERSION"
+
+echo ""
 echo "## Building hetzner image"
 sudo podman build --network=host -f "$REPO_DIR/Containerfile" -t "$REGISTRY:latest" "$REPO_DIR"
 
