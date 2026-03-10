@@ -53,6 +53,12 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     qemu-full \
     && pacman -S --clean --noconfirm
 
+# Rebuild initramfs if pacman -Syu updated the kernel
+RUN KDIR=$(find /usr/lib/modules -maxdepth 1 -type d -name '[0-9]*' | sort -V | tail -1) && \
+    if [ ! -f "$KDIR/initramfs.img" ]; then \
+        dracut --force "$KDIR/initramfs.img"; \
+    fi
+
 # k3s binary (downloaded during build)
 RUN K3S_VERSION=$(curl -sfL https://update.k3s.io/v1-release/channels | jq -r '.data[] | select(.id=="stable") | .latest') && \
     curl -sfL -o /usr/bin/k3s "https://github.com/k3s-io/k3s/releases/download/$(echo "$K3S_VERSION" | sed 's/+/%2B/g')/k3s" && \
@@ -96,6 +102,9 @@ RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
 # Network - DHCP on all ethernet interfaces (Hetzner Cloud)
 RUN printf '[Match]\nType=ether\n\n[Network]\nDHCP=yes\nIPv6AcceptRA=yes\n\n[DHCPv4]\nUseDNS=yes\nUseNTP=yes\n' \
     > /usr/lib/systemd/network/20-ethernet.network
+
+# Root password for emergency mode debugging (SSH still key-only)
+RUN echo "root:changeme" | chpasswd
 
 # Create user bupd with zsh
 RUN useradd -m -G wheel -s /bin/zsh bupd && \
