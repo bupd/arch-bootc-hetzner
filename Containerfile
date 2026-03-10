@@ -144,10 +144,25 @@ RUN printf '[user]\n\tname = bupd\n\temail = bupdprasanth@gmail.com\n\tsigningke
     chown bupd:bupd /var/home/bupd/.gitconfig
 
 # Clone and stow dotfiles
-RUN git clone https://github.com/bupd/dotfiles.git /var/home/bupd/dotfiles && \
+# Pre-create .claude/ as real dir so stow merges into it (not a dir-level symlink)
+RUN mkdir -p /var/home/bupd/.claude && \
+    git clone https://github.com/bupd/dotfiles.git /var/home/bupd/dotfiles && \
     cd /var/home/bupd/dotfiles && \
     stow -d /var/home/bupd/dotfiles -t /var/home/bupd . && \
     chown -R bupd:bupd /var/home/bupd
+
+# Claude Code settings (auto-managed, not stowed)
+COPY files/claude-settings.json /var/home/bupd/.claude/settings.json
+RUN chown bupd:bupd /var/home/bupd/.claude/settings.json
+
+# Skill symlinks (.claude/skills -> .agents/skills)
+RUN cd /var/home/bupd/.claude/skills && \
+    ln -sf ../../.agents/skills/find-skills find-skills && \
+    ln -sf ../../.agents/skills/go go && \
+    ln -sf ../../.agents/skills/helm-chart helm-chart && \
+    ln -sf ../../.agents/skills/remotion-best-practices remotion-best-practices && \
+    ln -sf ../../.agents/skills/systemd systemd && \
+    ln -sf ../../.agents/skills/taskfile taskfile
 
 # Server-specific sessionizer (overrides dotfiles version with correct paths)
 COPY files/sessionizer /var/home/bupd/sessionizer

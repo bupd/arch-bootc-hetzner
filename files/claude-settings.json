@@ -1,0 +1,57 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "read": {
+      "allowed": true
+    },
+    "glob": {
+      "allowed": true
+    },
+    "grep": {
+      "allowed": true
+    },
+    "bash": {
+      "allowed": [
+        "go doc *",
+        "go list *",
+        "go test *",
+        "go vet *",
+        "go version *",
+        "go env *",
+        "gh pr view *",
+        "gh pr diff *",
+        "gh pr list *",
+        "gh pr checks *",
+        "gh pr status *",
+        "gh issue view *",
+        "gh issue list *",
+        "gh repo view *",
+        "gh repo list *",
+        "gh release view *",
+        "gh release list *",
+        "gh api repos*",
+        "gh api orgs*",
+        "gh api users*",
+        "date*",
+        "git status*",
+        "git log*",
+        "git diff*",
+        "git commit*",
+        "wc *"
+      ]
+    }
+  },
+  "enabledMcpjsonServers": [],
+  "enabledPlugins": {
+    "security-guidance@claude-code-plugins": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "code-review@claude-code-plugins": true,
+    "commit-commands@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "effortLevel": "high"
+}
