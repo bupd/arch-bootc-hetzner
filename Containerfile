@@ -151,18 +151,19 @@ RUN mkdir -p /var/home/bupd/.claude/skills && \
     stow -d /var/home/bupd/dotfiles -t /var/home/bupd . && \
     chown -R bupd:bupd /var/home/bupd
 
-# Claude Code settings (auto-managed, not stowed)
+# Claude Code: settings, agents, skills (self-contained in bootc repo)
 COPY files/claude-settings.json /var/home/bupd/.claude/settings.json
-RUN chown bupd:bupd /var/home/bupd/.claude/settings.json
-
-# Skill symlinks (.claude/skills -> .agents/skills)
+COPY files/dot-claude/agents/ /var/home/bupd/.claude/agents/
+COPY files/dot-claude/skills/ /var/home/bupd/.claude/skills/
+COPY files/dot-agents/ /var/home/bupd/.agents/
 RUN cd /var/home/bupd/.claude/skills && \
     ln -sf ../../.agents/skills/find-skills find-skills && \
     ln -sf ../../.agents/skills/go go && \
     ln -sf ../../.agents/skills/helm-chart helm-chart && \
     ln -sf ../../.agents/skills/remotion-best-practices remotion-best-practices && \
     ln -sf ../../.agents/skills/systemd systemd && \
-    ln -sf ../../.agents/skills/taskfile taskfile
+    ln -sf ../../.agents/skills/taskfile taskfile && \
+    chown -R bupd:bupd /var/home/bupd/.claude /var/home/bupd/.agents
 
 # Server-specific sessionizer (overrides dotfiles version with correct paths)
 COPY files/sessionizer /var/home/bupd/sessionizer
