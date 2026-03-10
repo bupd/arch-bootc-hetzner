@@ -145,7 +145,7 @@ RUN printf '[user]\n\tname = bupd\n\temail = bupdprasanth@gmail.com\n\tsigningke
 
 # Clone and stow dotfiles
 # Pre-create .claude/ as real dir so stow merges into it (not a dir-level symlink)
-RUN mkdir -p /var/home/bupd/.claude && \
+RUN mkdir -p /var/home/bupd/.claude/skills && \
     git clone https://github.com/bupd/dotfiles.git /var/home/bupd/dotfiles && \
     cd /var/home/bupd/dotfiles && \
     stow -d /var/home/bupd/dotfiles -t /var/home/bupd . && \
