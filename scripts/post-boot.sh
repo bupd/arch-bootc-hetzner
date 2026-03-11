@@ -8,6 +8,12 @@ set -euo pipefail
 # Usage:
 #   ./post-boot.sh
 
+TARGET_USER="${SUDO_USER:-${USER:-bupd}}"
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+if [ -z "${TARGET_HOME:-}" ]; then
+    TARGET_HOME="$HOME"
+fi
+
 echo "## Verifying system"
 echo ""
 
@@ -16,7 +22,11 @@ cat /etc/os-release | grep PRETTY_NAME
 
 echo ""
 echo "Bootc status:"
-bootc status 2>/dev/null || echo "bootc not available (expected if not in PATH)"
+if command -v /usr/bin/bootc > /dev/null 2>&1; then
+    sudo /usr/bin/bootc status 2>/dev/null || echo "bootc installed but status requires elevated access"
+else
+    echo "bootc not installed"
+fi
 
 echo ""
 echo "## Tooling"
@@ -30,20 +40,40 @@ done
 
 echo ""
 echo "## Agent config"
-for path in \
-    /var/home/bupd/.claude/settings.json \
-    /var/home/bupd/.claude/agents \
-    /var/home/bupd/.claude/skills \
-    /var/home/bupd/.agents/skills \
-    /var/home/bupd/AGENTS.md \
-    /var/home/bupd/CLAUDE.md
-do
-    if [ -e "$path" ]; then
-        echo "  $path: present"
-    else
-        echo "  $path: MISSING"
-    fi
-done
+echo "User: $TARGET_USER"
+echo "Home: $TARGET_HOME"
+
+check_any() {
+    local label="$1"
+    shift
+    local path
+    for path in "$@"; do
+        if [ -e "$path" ]; then
+            echo "  $label: present ($path)"
+            return 0
+        fi
+    done
+    echo "  $label: MISSING"
+}
+
+check_any "claude settings" \
+    "$TARGET_HOME/.claude/settings.json" \
+    "$TARGET_HOME/dotfiles/.claude/settings.local.json"
+check_any "claude agents" \
+    "$TARGET_HOME/.claude/agents" \
+    "$TARGET_HOME/dotfiles/bootc/files/dot-claude/agents"
+check_any "claude skills" \
+    "$TARGET_HOME/.claude/skills" \
+    "$TARGET_HOME/dotfiles/bootc/files/dot-claude/skills"
+check_any "codex skills" \
+    "$TARGET_HOME/.agents/skills" \
+    "$TARGET_HOME/dotfiles/bootc/files/dot-agents/skills"
+check_any "AGENTS.md" \
+    "$TARGET_HOME/AGENTS.md" \
+    "$TARGET_HOME/dotfiles/AGENTS.md"
+check_any "CLAUDE.md" \
+    "$TARGET_HOME/CLAUDE.md" \
+    "$TARGET_HOME/dotfiles/CLAUDE.md"
 
 echo ""
 echo "Services:"
