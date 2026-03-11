@@ -139,6 +139,10 @@ sudo bootc upgrade
 sudo reboot
 ```
 
+The image now keeps the ESP in sync twice:
+- on every successful boot (`bootc-sync-esp.service`) as a repair path
+- on shutdown after `ostree-finalize-staged.service` (`bootc-sync-esp-finalize.service`) so staged upgrades copy the correct loader state before the next boot
+
 The previous image remains as a rollback entry in systemd-boot.
 
 ## Known Issues
@@ -148,6 +152,28 @@ The previous image remains as a rollback entry in systemd-boot.
 `bootc install to-disk --bootloader systemd` places the systemd-boot binary and loader config on the root partition, but UEFI firmware looks for them on the EFI System Partition (ESP). The `flash-disk.sh` script handles this automatically by copying `BOOTX64.EFI`, loader entries, kernel, and initramfs to the ESP.
 
 See: [bootc-dev/bootc#865](https://github.com/bootc-dev/bootc/issues/865)
+
+### Why upgrades could previously fail to boot
+
+OSTree staged deployments delay bootloader updates until shutdown in `ostree-finalize-staged.service`. Syncing the ESP immediately after `bootc upgrade` is therefore too early and can leave the ESP with stale loader entries or the wrong default entry. This repo now syncs the ESP after OSTree finalization and preserves the exact `loader.conf` generated under `/boot` instead of guessing a default entry.
+
+See:
+- [OSTree staged deployments](https://ostreedev.github.io/ostree/deployment/)
+- [OSTree bootloader flow](https://ostreedev.github.io/ostree/bootloaders/)
+
+## Recover a broken Hetzner host after a bad upgrade
+
+If the machine drops into emergency mode with an error like `couldn't find specified OSTree root`, repair the ESP from Hetzner rescue mode instead of reflashing:
+
+```sh
+curl -sL https://raw.githubusercontent.com/bupd/arch-bootc-hetzner/main/scripts/repair-esp.sh -o repair-esp.sh
+chmod +x repair-esp.sh
+./repair-esp.sh /dev/sda
+./verify-disk.sh /dev/sda
+reboot
+```
+
+This rebuilds the ESP from the installed root filesystem's active `/boot/loader*` state.
 
 ### Arch is not officially supported by bootc
 

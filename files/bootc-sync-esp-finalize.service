@@ -1,0 +1,19 @@
+[Unit]
+Description=Sync bootc bootloader to EFI System Partition after OSTree finalize
+Documentation=man:ostree(1)
+ConditionPathExists=/run/ostree-booted
+DefaultDependencies=no
+RequiresMountsFor=/boot
+After=local-fs.target
+Before=basic.target final.target ostree-finalize-staged.service
+Conflicts=final.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/true
+ExecStop=/usr/bin/bootc-sync-esp
+TimeoutStopSec=5m
+
+[Install]
+WantedBy=basic.target

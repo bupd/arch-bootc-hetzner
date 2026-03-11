@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+shopt -s nullglob
 
 # Flash a bootable disk image to a Hetzner server from rescue mode.
 # Run this script INSIDE the Hetzner rescue environment.
@@ -108,16 +109,18 @@ if [ -n "$EFI_PART" ]; then
             done
         fi
 
-        # Sync all loader entries to ESP
+        # Sync the active loader tree to ESP.
         mkdir -p "$ESP/loader/entries"
-        rm -f "$ESP/loader/entries/"*.conf
+        rm -f "$ESP/loader/entries/"*.conf "$ESP/loader/loader.conf"
         if [ -d "$LOADER_DIR/entries" ]; then
             cp "$LOADER_DIR/entries/"*.conf "$ESP/loader/entries/"
             sed -i 's|/boot/ostree/|/ostree/|g' "$ESP/loader/entries/"*.conf
-
-            # Default to highest version entry
-            DEFAULT_ENTRY=$(ls -1 "$ESP/loader/entries/" | sort -t- -k1 -rV | head -1)
-            printf "default %s\ntimeout 5\n" "$DEFAULT_ENTRY" > "$ESP/loader/loader.conf"
+            if [ -f "$ESP/loader/entries/ostree-2.conf" ]; then
+                printf "default ostree-2.conf\ntimeout 5\n" > "$ESP/loader/loader.conf"
+            else
+                FIRST_ENTRY=$(basename "$(ls -1 "$ESP/loader/entries/"*.conf | head -1)")
+                printf "default %s\ntimeout 5\n" "$FIRST_ENTRY" > "$ESP/loader/loader.conf"
+            fi
         fi
 
         # Sync all kernels and initramfs to ESP

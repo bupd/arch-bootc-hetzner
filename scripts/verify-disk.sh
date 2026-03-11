@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+shopt -s nullglob
 
 # Verify a bootc disk is correctly set up before rebooting.
 # Run this from Hetzner rescue mode.
@@ -51,12 +52,27 @@ check "BOOTX64.EFI exists" "$(ls /mnt/boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null)
 echo ""
 echo "## Loader Config"
 check "loader.conf exists" "$(ls /mnt/boot/efi/loader/loader.conf 2>/dev/null)"
-check "ostree-1.conf exists" "$(ls /mnt/boot/efi/loader/entries/ostree-1.conf 2>/dev/null)"
+ENTRY_FILES=(/mnt/boot/efi/loader/entries/*.conf)
+DEFAULT_ENTRY=""
+if [ -f /mnt/boot/efi/loader/loader.conf ]; then
+    DEFAULT_ENTRY=$(awk '/^default / {print $2; exit}' /mnt/boot/efi/loader/loader.conf)
+fi
 
-if [ -f /mnt/boot/efi/loader/entries/ostree-1.conf ]; then
+if [ ${#ENTRY_FILES[@]} -gt 0 ]; then
+    echo "[OK]   at least one boot entry exists"
+else
+    echo "[FAIL] at least one boot entry exists"
+    ERRORS=$((ERRORS + 1))
+fi
+
+if [ -n "$DEFAULT_ENTRY" ] && [ -f "/mnt/boot/efi/loader/entries/$DEFAULT_ENTRY" ]; then
     echo ""
-    echo "## Boot Entry"
-    cat /mnt/boot/efi/loader/entries/ostree-1.conf
+    echo "## Default Boot Entry"
+    cat "/mnt/boot/efi/loader/entries/$DEFAULT_ENTRY"
+elif [ ${#ENTRY_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "## First Boot Entry"
+    cat "${ENTRY_FILES[0]}"
 fi
 
 echo ""
@@ -67,7 +83,13 @@ check "Initramfs on ESP" "$(find /mnt/boot/efi -name 'initramfs-*' 2>/dev/null)"
 echo ""
 echo "## Root UUID"
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
-ENTRY_UUID=$(grep -oP 'UUID=\K[^ ]+' /mnt/boot/efi/loader/entries/ostree-1.conf 2>/dev/null || true)
+ENTRY_SOURCE=""
+if [ -n "$DEFAULT_ENTRY" ] && [ -f "/mnt/boot/efi/loader/entries/$DEFAULT_ENTRY" ]; then
+    ENTRY_SOURCE="/mnt/boot/efi/loader/entries/$DEFAULT_ENTRY"
+elif [ ${#ENTRY_FILES[@]} -gt 0 ]; then
+    ENTRY_SOURCE="${ENTRY_FILES[0]}"
+fi
+ENTRY_UUID=$(grep -oP 'UUID=\K[^ ]+' "$ENTRY_SOURCE" 2>/dev/null || true)
 echo "   Disk:  $ROOT_UUID"
 echo "   Entry: $ENTRY_UUID"
 if [ "$ROOT_UUID" = "$ENTRY_UUID" ]; then
@@ -86,7 +108,7 @@ if [ -n "$DEPLOY" ]; then
     echo ""
     echo "## SSH Access"
     check "sshd enabled" "$(ls $DEPLOY/etc/systemd/system/multi-user.target.wants/sshd.service 2>/dev/null)"
-    check "authorized_keys exists" "$(ls $DEPLOY/var/home/*/. ssh/authorized_keys 2>/dev/null)"
+    check "authorized_keys exists" "$(ls "$DEPLOY"/var/home/*/.ssh/authorized_keys 2>/dev/null)"
 
     echo ""
     echo "## Network"

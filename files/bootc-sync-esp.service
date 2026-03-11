@@ -1,5 +1,5 @@
 [Unit]
-Description=Sync bootc bootloader to EFI System Partition
+Description=Sync bootc bootloader to EFI System Partition at boot
 DefaultDependencies=no
 After=local-fs.target
 Before=sysinit.target

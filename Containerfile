@@ -79,20 +79,18 @@ RUN ufw default deny incoming && \
     ufw allow 41641/udp && \
     sed -i 's/^ENABLED=no/ENABLED=yes/' /etc/ufw/ufw.conf
 
-# ESP sync script and bootc wrapper
+# ESP sync scripts
 # Installed to /usr/bin/ so they survive bootc upgrades (not /usr/local/ which maps to /var/)
 COPY files/bootc-sync-esp.sh /usr/bin/bootc-sync-esp
-COPY files/bootc-wrapper /usr/bin/bootc-wrapper
-RUN chmod +x /usr/bin/bootc-sync-esp /usr/bin/bootc-wrapper && \
-    mv /usr/bin/bootc /usr/bin/bootc.real && \
-    ln -sf /usr/bin/bootc-wrapper /usr/bin/bootc
+RUN chmod +x /usr/bin/bootc-sync-esp
 
 # Systemd services
 COPY files/bootc-sync-esp.service /usr/lib/systemd/system/bootc-sync-esp.service
+COPY files/bootc-sync-esp-finalize.service /usr/lib/systemd/system/bootc-sync-esp-finalize.service
 COPY files/unlock-root.service /usr/lib/systemd/system/unlock-root.service
 
 # Enable services
-RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0 bootc-sync-esp unlock-root ufw k3s
+RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0 bootc-sync-esp bootc-sync-esp-finalize unlock-root ufw k3s
 
 # Timezone and locale
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
