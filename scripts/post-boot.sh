@@ -75,6 +75,8 @@ check_any "AGENTS.md" \
 check_any "CLAUDE.md" \
     "$TARGET_HOME/CLAUDE.md" \
     "$TARGET_HOME/dotfiles/CLAUDE.md"
+check_any "kube config" \
+    "$TARGET_HOME/.kube/config"
 
 echo ""
 echo "Services:"
