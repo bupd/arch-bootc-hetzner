@@ -80,6 +80,7 @@ alias gfp='git fetch && git pull'
 alias lz='lazygit'
 alias d='podman'
 alias dc='podman compose'
+alias k='kubectl'
 
 # Editor
 export EDITOR='nvim'
