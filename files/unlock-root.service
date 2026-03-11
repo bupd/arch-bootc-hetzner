@@ -1,0 +1,12 @@
+[Unit]
+Description=Ensure root account is unlocked after bootc upgrade
+Before=rescue.service emergency.service
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/passwd -u root
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

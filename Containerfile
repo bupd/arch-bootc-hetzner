@@ -87,11 +87,12 @@ RUN chmod +x /usr/bin/bootc-sync-esp /usr/bin/bootc-wrapper && \
     mv /usr/bin/bootc /usr/bin/bootc.real && \
     ln -sf /usr/bin/bootc-wrapper /usr/bin/bootc
 
-# Systemd service to sync ESP on every boot
+# Systemd services
 COPY files/bootc-sync-esp.service /usr/lib/systemd/system/bootc-sync-esp.service
+COPY files/unlock-root.service /usr/lib/systemd/system/unlock-root.service
 
 # Enable services
-RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0 bootc-sync-esp ufw k3s
+RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0 bootc-sync-esp unlock-root ufw k3s
 
 # Timezone and locale
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
