@@ -105,7 +105,8 @@ RUN printf '[Match]\nType=ether\n\n[Network]\nDHCP=yes\nIPv6AcceptRA=yes\n\n[DHC
     > /usr/lib/systemd/network/20-ethernet.network
 
 # Root password for emergency mode debugging (SSH still key-only)
-RUN echo "root:changeme" | chpasswd
+# Use pre-hashed password (fixed salt) so ostree 3-way merge sees no diff across upgrades
+RUN echo 'root:$6$bootcfixedsalt$LwmtTY8517vfslOJEBz1DYm5j2cNOixrdSjmPAmBKuCbKiiMnYKWEg5HzhSDoCcINliaxFgnhDwu9eInNmZWL/' | chpasswd -e
 
 # Create user bupd with zsh
 RUN useradd -m -G wheel -s /bin/zsh bupd && \
