@@ -1,8 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-# Post-boot setup script for a freshly flashed bootc Arch Linux system.
+# Post-boot verification script for a freshly flashed bootc Arch Linux system.
 # Run this after the first successful boot.
+# This script is read-only and must not install or modify anything.
 #
 # Usage:
 #   ./post-boot.sh
@@ -19,7 +20,7 @@ bootc status 2>/dev/null || echo "bootc not available (expected if not in PATH)"
 
 echo ""
 echo "## Tooling"
-for tool in fastfetch neofetch btop claude codex; do
+for tool in fastfetch btop claude codex; do
     if command -v "$tool" > /dev/null 2>&1; then
         echo "  $tool: installed"
     else
@@ -67,8 +68,7 @@ if systemctl is-active tailscaled > /dev/null 2>&1; then
         echo "Tailscale is connected"
         tailscale status | head -5
     else
-        echo "Tailscale needs authentication. Run:"
-        echo "  sudo tailscale up"
+        echo "Tailscale is running but not authenticated"
     fi
 else
     echo "Tailscale is not running"
@@ -87,8 +87,7 @@ if command -v k3s &> /dev/null; then
     echo "k3s is installed"
     sudo k3s kubectl get nodes 2>/dev/null || echo "k3s is not running"
 else
-    echo "k3s is not installed. To install:"
-    echo "  curl -sfL https://get.k3s.io | sh -"
+    echo "k3s is not installed"
 fi
 
 # GPG
@@ -97,16 +96,13 @@ echo "## GPG"
 if gpg --list-secret-keys 2>/dev/null | grep -q "sec"; then
     echo "GPG keys found"
 else
-    echo "No GPG secret keys. Import your key:"
-    echo "  gpg --import your-private-key.asc"
+    echo "No GPG secret keys found"
 fi
 
 ## Coding repos
 echo ""
 echo "## Coding repos"
-echo "Run 'setup-repos' after SSH keys are configured to set up:"
-echo "  Harbor bare worktree    -> ~/code/OSS/Harbr/"
-echo "  Satellite bare worktree -> ~/code/OSS/harborSatellite/"
+echo "setup-repos remains a separate manual step after SSH keys are configured"
 
 echo ""
 echo "## Done"

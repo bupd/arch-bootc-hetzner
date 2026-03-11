@@ -8,7 +8,6 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     vim \
     neovim \
     fastfetch \
-    neofetch \
     htop \
     btop \
     curl \
