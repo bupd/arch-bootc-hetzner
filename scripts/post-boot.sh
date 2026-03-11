@@ -84,7 +84,7 @@ done
 
 echo ""
 echo "Network:"
-ip -4 addr show scope global | grep inet
+ip -4 addr show scope global | grep inet || echo "No global IPv4 addresses found"
 
 echo ""
 echo "Disk:"
@@ -96,7 +96,7 @@ echo "## Tailscale"
 if systemctl is-active tailscaled > /dev/null 2>&1; then
     if tailscale status > /dev/null 2>&1; then
         echo "Tailscale is connected"
-        tailscale status | head -5
+        tailscale status | awk 'NR <= 5 { print }'
     else
         echo "Tailscale is running but not authenticated"
     fi
