@@ -157,26 +157,28 @@ RUN printf '[user]\n\tname = bupd\n\temail = bupdprasanth@gmail.com\n\tsigningke
     chown bupd:bupd /var/home/bupd/.gitconfig
 
 # Clone and stow dotfiles
-# Pre-create .claude/ as real dir so stow merges into it (not a dir-level symlink)
-RUN mkdir -p /var/home/bupd/.claude/skills && \
+# Pre-create agent config dirs as real dirs so stow merges into them (not dir-level symlinks)
+RUN mkdir -p /var/home/bupd/.claude/skills /var/home/bupd/.codex/skills && \
     git clone https://github.com/bupd/dotfiles.git /var/home/bupd/dotfiles && \
     cd /var/home/bupd/dotfiles && \
     stow -d /var/home/bupd/dotfiles -t /var/home/bupd . && \
     chown -R bupd:bupd /var/home/bupd
 
-# Claude Code: settings, agents, skills (self-contained in bootc repo)
+# Claude Code + Codex: settings, agents, skills (self-contained in bootc repo)
 COPY files/claude-settings.json /var/home/bupd/.claude/settings.json
 COPY files/dot-claude/agents/ /var/home/bupd/.claude/agents/
 COPY files/dot-claude/skills/ /var/home/bupd/.claude/skills/
-COPY files/dot-agents/ /var/home/bupd/.agents/
+COPY files/dot-agents/skills/ /var/home/bupd/.codex/skills/
 RUN cd /var/home/bupd/.claude/skills && \
-    ln -sf ../../.agents/skills/find-skills find-skills && \
-    ln -sf ../../.agents/skills/go go && \
-    ln -sf ../../.agents/skills/helm-chart helm-chart && \
-    ln -sf ../../.agents/skills/remotion-best-practices remotion-best-practices && \
-    ln -sf ../../.agents/skills/systemd systemd && \
-    ln -sf ../../.agents/skills/taskfile taskfile && \
-    chown -R bupd:bupd /var/home/bupd/.claude /var/home/bupd/.agents
+    ln -sf ../../.codex/skills/find-skills find-skills && \
+    ln -sf ../../.codex/skills/go go && \
+    ln -sf ../../.codex/skills/helm-chart helm-chart && \
+    ln -sf ../../.codex/skills/remotion-best-practices remotion-best-practices && \
+    ln -sf ../../.codex/skills/systemd systemd && \
+    ln -sf ../../.codex/skills/taskfile taskfile && \
+    mkdir -p /var/home/bupd/.agents && \
+    ln -sfn ../.codex/skills /var/home/bupd/.agents/skills && \
+    chown -R bupd:bupd /var/home/bupd/.claude /var/home/bupd/.codex /var/home/bupd/.agents
 
 # Server-specific sessionizer (overrides dotfiles version with correct paths)
 COPY files/sessionizer /var/home/bupd/sessionizer

@@ -66,6 +66,7 @@ check_any "claude skills" \
     "$TARGET_HOME/.claude/skills" \
     "$TARGET_HOME/dotfiles/bootc/files/dot-claude/skills"
 check_any "codex skills" \
+    "$TARGET_HOME/.codex/skills" \
     "$TARGET_HOME/.agents/skills" \
     "$TARGET_HOME/dotfiles/bootc/files/dot-agents/skills"
 check_any "AGENTS.md" \
