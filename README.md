@@ -193,10 +193,15 @@ bootc officially targets Fedora/CentOS. Arch support is community-maintained via
 ## Included Software
 
 ### Packages
-openssh, sudo, vim, neovim, htop, btop, curl, wget, git, tmux, zsh, stow, fzf, ripgrep, fd, jq, go, gcc, make, unzip, nodejs, npm, gnupg, rsync, net-tools, iproute2, traceroute, tailscale, podman, kubectl, helm, k9s, k3s
+openssh, sudo, vim, neovim, fastfetch, neofetch, htop, btop, curl, wget, git, tmux, zsh, stow, fzf, ripgrep, fd, jq, go, gcc, make, unzip, nodejs, npm, gnupg, rsync, net-tools, iproute2, traceroute, tailscale, podman, kubectl, helm, k9s, k3s
 
 ### Services (enabled)
 sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-guest-agent, ufw, k3s, bootc-sync-esp
+
+### Developer CLIs
+- Claude Code (`claude`)
+- OpenAI Codex CLI (`codex`)
+- fastfetch, neofetch, btop
 
 ### Security
 - Root login disabled

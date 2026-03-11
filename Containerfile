@@ -7,6 +7,8 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     sudo \
     vim \
     neovim \
+    fastfetch \
+    neofetch \
     htop \
     btop \
     curl \
@@ -140,6 +142,9 @@ RUN BUN_INSTALL=/usr curl -fsSL https://bun.sh/install | bash
 # Claude Code (native binary)
 RUN curl -fsSL https://claude.ai/install.sh | bash && \
     cp ~/.local/bin/claude /usr/bin/claude
+
+# OpenAI Codex CLI
+RUN npm install -g --prefix /usr @openai/codex
 
 # Lima (direct download, no homebrew needed)
 RUN --mount=type=tmpfs,dst=/tmp \

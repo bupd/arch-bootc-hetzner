@@ -18,6 +18,33 @@ echo "Bootc status:"
 bootc status 2>/dev/null || echo "bootc not available (expected if not in PATH)"
 
 echo ""
+echo "## Tooling"
+for tool in fastfetch neofetch btop claude codex; do
+    if command -v "$tool" > /dev/null 2>&1; then
+        echo "  $tool: installed"
+    else
+        echo "  $tool: MISSING"
+    fi
+done
+
+echo ""
+echo "## Agent config"
+for path in \
+    /var/home/bupd/.claude/settings.json \
+    /var/home/bupd/.claude/agents \
+    /var/home/bupd/.claude/skills \
+    /var/home/bupd/.agents/skills \
+    /var/home/bupd/AGENTS.md \
+    /var/home/bupd/CLAUDE.md
+do
+    if [ -e "$path" ]; then
+        echo "  $path: present"
+    else
+        echo "  $path: MISSING"
+    fi
+done
+
+echo ""
 echo "Services:"
 for svc in sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled; do
     status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
