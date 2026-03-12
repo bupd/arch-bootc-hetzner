@@ -15,6 +15,8 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     git \
     tmux \
     zsh \
+    bind \
+    bind-tools \
     stow \
     fzf \
     ripgrep \
@@ -35,6 +37,8 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     grub \
     less \
     lazygit \
+    skopeo \
+    crane \
     podman-docker \
     podman-compose \
     kubectl \
@@ -118,7 +122,8 @@ RUN --mount=type=tmpfs,dst=/tmp \
     git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin && \
     chown -R bupd:bupd /tmp/yay-bin && \
     runuser -u bupd -- bash -c "cd /tmp/yay-bin && makepkg --noconfirm" && \
-    pacman -U --noconfirm /tmp/yay-bin/*.pkg.tar.zst
+    pacman -U --noconfirm /tmp/yay-bin/*.pkg.tar.zst && \
+    runuser -u bupd -- yay -S --noconfirm oras
 
 # SSH config - key-based auth only
 RUN mkdir -p /etc/ssh/sshd_config.d && \
