@@ -69,6 +69,8 @@ RUN K3S_VERSION=$(curl -sfL https://update.k3s.io/v1-release/channels | jq -r '.
 
 # k3s systemd service
 COPY files/k3s.service /usr/lib/systemd/system/k3s.service
+COPY files/20-ethernet.network /usr/lib/systemd/network/20-ethernet.network
+COPY files/90-k3s-network.conf /usr/lib/sysctl.d/90-k3s-network.conf
 
 # ufw firewall - lockdown for public cloud
 # Configure rules at build time; ufw enable requires iptables/kernel so
@@ -77,6 +79,10 @@ RUN ufw default deny incoming && \
     ufw default allow outgoing && \
     ufw allow ssh && \
     ufw allow in on tailscale0 && \
+    ufw allow from 10.42.0.0/16 && \
+    ufw allow from 10.43.0.0/16 && \
+    ufw route allow from 10.42.0.0/16 && \
+    ufw route allow to 10.42.0.0/16 && \
     ufw allow 41641/udp && \
     sed -i 's/^ENABLED=no/ENABLED=yes/' /etc/ufw/ufw.conf
 
@@ -98,10 +104,6 @@ RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
     echo "LANG=en_US.UTF-8" > /etc/locale.conf
-
-# Network - DHCP on all ethernet interfaces (Hetzner Cloud)
-RUN printf '[Match]\nType=ether\n\n[Network]\nDHCP=yes\nIPv6AcceptRA=yes\n\n[DHCPv4]\nUseDNS=yes\nUseNTP=yes\n' \
-    > /usr/lib/systemd/network/20-ethernet.network
 
 # Root password for emergency mode debugging (SSH still key-only)
 # Use pre-hashed password (fixed salt) so ostree 3-way merge sees no diff across upgrades

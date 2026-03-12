@@ -1,8 +1,8 @@
 [Unit]
 Description=Lightweight Kubernetes
 Documentation=https://k3s.io
-Wants=network-online.target
-After=network-online.target
+Wants=network-online.target ufw.service
+After=network-online.target systemd-sysctl.service ufw.service
 
 [Service]
 Type=notify
