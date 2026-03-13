@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /var/lib/containers/storage
-          key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'Containerfile.chunkah', 'scripts/build.sh', 'files/**', '.github/workflows/bootc-build.yaml') }}
+          key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'scripts/build.sh', 'files/**', '.github/workflows/bootc-build.yaml') }}
           restore-keys: |
             podman-build-
 
@@ -73,16 +73,26 @@ jobs:
         run: |
           CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
           CHUNKAH_CONFIG_STR="$(podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
+          CHUNKAH_ARCHIVE_PATH="$(mktemp "$PWD/chunkah-XXXXXX.ociarchive")"
+          SOURCE_CID="$(podman create "$FINAL_IMAGE_TAG")"
+          SOURCE_MOUNT="$(podman mount "$SOURCE_CID")"
+          cleanup() {
+            podman unmount "$SOURCE_CID" >/dev/null 2>&1 || true
+            podman rm -f "$SOURCE_CID" >/dev/null 2>&1 || true
+            rm -f "$CHUNKAH_ARCHIVE_PATH"
+          }
+          trap cleanup EXIT
           podman pull "$CHUNKAH_IMAGE"
-          podman build --network=host \
-            --skip-unused-stages=false \
-            --build-arg "SOURCE_IMAGE=$FINAL_IMAGE_TAG" \
-            --build-arg "CHUNKAH_IMAGE=$CHUNKAH_IMAGE" \
-            --build-arg "CHUNKAH_CONFIG_STR=$CHUNKAH_CONFIG_STR" \
-            --build-arg "CHUNKAH_ARGS=--max-layers 128" \
-            -f Containerfile.chunkah \
-            -t "$CHUNKED_IMAGE_TAG" \
-            .
+          podman run --rm \
+            -e "CHUNKAH_CONFIG_STR=$CHUNKAH_CONFIG_STR" \
+            -e "CHUNKAH_ARGS=--max-layers 128" \
+            -e "ARCHIVE_NAME=$(basename "$CHUNKAH_ARCHIVE_PATH")" \
+            -v "$SOURCE_MOUNT:/chunkah:ro" \
+            -v "$PWD:/out:rw" \
+            "$CHUNKAH_IMAGE" \
+            sh -ceu 'chunkah build --config-str "$CHUNKAH_CONFIG_STR" ${CHUNKAH_ARGS} > "/out/${ARCHIVE_NAME}"'
+          IMPORTED_IMAGE="$(podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}")"
+          podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
       - name: Show built image
         run: podman image inspect "$CHUNKED_IMAGE_TAG" >/dev/null

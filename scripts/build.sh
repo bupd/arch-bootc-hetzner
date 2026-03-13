@@ -19,6 +19,18 @@ REGISTRY_HOST="$(echo "$REGISTRY" | cut -d/ -f1)"
 BASE_IMAGE_TAG="localhost/arch-bootc-base:latest"
 FINAL_IMAGE_TAG="localhost/arch-bootc-hetzner:latest"
 CHUNKED_IMAGE_TAG="${REGISTRY}:latest"
+CHUNKAH_ARCHIVE_PATH="$(mktemp "${REPO_DIR}/chunkah-XXXXXX.ociarchive")"
+SOURCE_CID=""
+
+cleanup() {
+    if [ -n "$SOURCE_CID" ]; then
+        sudo podman unmount "$SOURCE_CID" >/dev/null 2>&1 || true
+        sudo podman rm -f "$SOURCE_CID" >/dev/null 2>&1 || true
+    fi
+    rm -f "$CHUNKAH_ARCHIVE_PATH"
+}
+
+trap cleanup EXIT
 
 github_latest_release_tag() {
     local repo="$1"
@@ -67,15 +79,18 @@ echo ""
 echo "## Rechunking final image with chunkah"
 sudo podman pull "$CHUNKAH_IMAGE"
 CHUNKAH_CONFIG_STR="$(sudo podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
-sudo podman build --network=host \
-    --skip-unused-stages=false \
-    --build-arg "SOURCE_IMAGE=${FINAL_IMAGE_TAG}" \
-    --build-arg "CHUNKAH_IMAGE=${CHUNKAH_IMAGE}" \
-    --build-arg "CHUNKAH_CONFIG_STR=${CHUNKAH_CONFIG_STR}" \
-    --build-arg "CHUNKAH_ARGS=${CHUNKAH_ARGS}" \
-    -f "$REPO_DIR/Containerfile.chunkah" \
-    -t "$CHUNKED_IMAGE_TAG" \
-    "$REPO_DIR"
+SOURCE_CID="$(sudo podman create "$FINAL_IMAGE_TAG")"
+SOURCE_MOUNT="$(sudo podman mount "$SOURCE_CID")"
+sudo podman run --rm \
+    -e "CHUNKAH_CONFIG_STR=${CHUNKAH_CONFIG_STR}" \
+    -e "CHUNKAH_ARGS=${CHUNKAH_ARGS}" \
+    -e "ARCHIVE_NAME=$(basename "$CHUNKAH_ARCHIVE_PATH")" \
+    -v "${SOURCE_MOUNT}:/chunkah:ro" \
+    -v "${REPO_DIR}:/out:rw" \
+    "$CHUNKAH_IMAGE" \
+    sh -ceu 'chunkah build --config-str "$CHUNKAH_CONFIG_STR" ${CHUNKAH_ARGS} > "/out/${ARCHIVE_NAME}"'
+IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}")"
+sudo podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
 echo ""
 echo "## Pushing to $CHUNKED_IMAGE_TAG"
