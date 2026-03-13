@@ -94,8 +94,50 @@ setup_satellite() {
     echo "Satellite setup complete."
 }
 
+setup_harbor_cli() {
+    local dir="${CODE_DIR}/harbor-cli"
+    if [ -f "${dir}/HEAD" ]; then
+        echo "Harbor CLI bare repo already exists at ${dir}, skipping init"
+        echo "To re-fetch: cd ${dir} && git fetch --all"
+        return 0
+    fi
+
+    echo "Setting up Harbor CLI bare repo at ${dir}..."
+    mkdir -p "$dir"
+    git init --bare "$dir"
+    cd "$dir"
+
+    git remote add upstream https://github.com/goharbor/harbor-cli.git
+    git remote add origin git@github.com:bupd/harbor-cli.git
+
+    echo "Fetching remotes..."
+    git fetch upstream || echo "WARN: failed to fetch upstream"
+    git fetch origin || echo "WARN: failed to fetch origin"
+
+    local worktrees=(
+        "upstream-main:upstream/main"
+        "upstream-pr:upstream/main"
+        "origin-main:origin/main"
+        "origin-pr:origin/main"
+    )
+
+    for wt in "${worktrees[@]}"; do
+        local name="${wt%%:*}"
+        local ref="${wt##*:}"
+        if git rev-parse --verify "$ref" >/dev/null 2>&1; then
+            git worktree add "$name" "$ref" 2>/dev/null || echo "WARN: worktree $name already exists or failed"
+        else
+            echo "SKIP: ref $ref not available, skipping worktree $name"
+        fi
+    done
+
+    echo "Harbor CLI setup complete."
+}
+
 echo "=== Setting up coding repos ==="
 setup_harbor
+echo ""
+setup_harbor_cli
 echo ""
 setup_satellite
 echo ""

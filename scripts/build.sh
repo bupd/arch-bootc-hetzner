@@ -16,32 +16,71 @@ PASSWORD="${3:?Usage: $0 <registry> <username> <password>}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 REGISTRY_HOST="$(echo "$REGISTRY" | cut -d/ -f1)"
+BASE_IMAGE_TAG="localhost/arch-bootc-base:latest"
+FINAL_IMAGE_TAG="localhost/arch-bootc-hetzner:latest"
+CHUNKED_IMAGE_TAG="${REGISTRY}:latest"
+
+github_latest_release_tag() {
+    local repo="$1"
+    curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name'
+}
+
+BOOTC_VERSION="$(github_latest_release_tag bootc-dev/bootc)"
+CHUNKAH_VERSION="$(github_latest_release_tag coreos/chunkah)"
+
+if [ -z "$BOOTC_VERSION" ] || [ "$BOOTC_VERSION" = "null" ]; then
+    echo "ERROR: failed to resolve latest bootc release"
+    exit 1
+fi
+
+if [ -z "$CHUNKAH_VERSION" ] || [ "$CHUNKAH_VERSION" = "null" ]; then
+    echo "ERROR: failed to resolve latest chunkah release"
+    exit 1
+fi
+
+CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
+CHUNKAH_ARGS="${CHUNKAH_ARGS:---max-layers 128}"
+
+echo "## Using bootc ${BOOTC_VERSION}"
+echo "## Using chunkah ${CHUNKAH_VERSION}"
 
 echo "## Logging into registry: $REGISTRY_HOST"
 sudo podman login "$REGISTRY_HOST" -u "$USERNAME" -p "$PASSWORD"
 
 echo ""
-echo "## Building base image (this compiles bootc from source, ~20-40 min)"
-sudo podman build --network=host -f "$REPO_DIR/Containerfile.base" -t arch-bootc:latest "$REPO_DIR"
-
-echo ""
-echo "## Tagging base image so Containerfile FROM resolves"
-sudo podman tag arch-bootc:latest ghcr.io/bootcrew/arch-bootc:latest
-
-echo ""
-echo "## Downloading k3s binary"
-K3S_VERSION=$(curl -sfL https://update.k3s.io/v1-release/channels | jq -r '.data[] | select(.id=="stable") | .latest')
-curl -sfL -o "$REPO_DIR/k3s" "https://github.com/k3s-io/k3s/releases/download/$(echo "$K3S_VERSION" | sed 's/+/%2B/g')/k3s"
-chmod +x "$REPO_DIR/k3s"
-echo "Downloaded k3s $K3S_VERSION"
+echo "## Building base image (this compiles bootc ${BOOTC_VERSION} from source)"
+sudo podman build --pull=always --network=host \
+    --build-arg "BOOTC_VERSION=${BOOTC_VERSION}" \
+    -f "$REPO_DIR/Containerfile.base" \
+    -t "$BASE_IMAGE_TAG" \
+    "$REPO_DIR"
 
 echo ""
 echo "## Building hetzner image"
-sudo podman build --network=host -f "$REPO_DIR/Containerfile" -t "$REGISTRY:latest" "$REPO_DIR"
+sudo podman build --network=host \
+    --build-arg "BASE_IMAGE=${BASE_IMAGE_TAG}" \
+    -f "$REPO_DIR/Containerfile" \
+    -t "$FINAL_IMAGE_TAG" \
+    "$REPO_DIR"
 
 echo ""
-echo "## Pushing to $REGISTRY:latest"
-sudo podman push "$REGISTRY:latest"
+echo "## Rechunking final image with chunkah"
+sudo podman pull "$CHUNKAH_IMAGE"
+export CHUNKAH_CONFIG_STR
+CHUNKAH_CONFIG_STR="$(sudo podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
+sudo podman build --network=host \
+    --skip-unused-stages=false \
+    --build-arg "SOURCE_IMAGE=${FINAL_IMAGE_TAG}" \
+    --build-arg "CHUNKAH_IMAGE=${CHUNKAH_IMAGE}" \
+    --build-arg CHUNKAH_CONFIG_STR \
+    --build-arg "CHUNKAH_ARGS=${CHUNKAH_ARGS}" \
+    -f "$REPO_DIR/Containerfile.chunkah" \
+    -t "$CHUNKED_IMAGE_TAG" \
+    "$REPO_DIR"
 
 echo ""
-echo "## Done. Image pushed to $REGISTRY:latest"
+echo "## Pushing to $CHUNKED_IMAGE_TAG"
+sudo podman push "$CHUNKED_IMAGE_TAG"
+
+echo ""
+echo "## Done. Image pushed to $CHUNKED_IMAGE_TAG"

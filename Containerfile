@@ -1,4 +1,5 @@
-FROM ghcr.io/bootcrew/arch-bootc:latest
+ARG BASE_IMAGE=ghcr.io/bootcrew/arch-bootc:latest
+FROM ${BASE_IMAGE}
 
 # Core server + dev packages
 RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/pacman \
@@ -138,7 +139,7 @@ RUN mkdir -p /var/home/bupd/.ssh && chmod 700 /var/home/bupd/.ssh && \
     chown -R bupd:bupd /var/home/bupd/.ssh && \
     mkdir -p /var/home/bupd/code/OSS && chown -R bupd:bupd /var/home/bupd/code
 
-# Repo setup script (bare worktrees for Harbor and Satellite)
+# Repo setup script (bare worktrees for Harbor, Harbor CLI, and Satellite)
 COPY files/setup-repos.sh /usr/bin/setup-repos
 RUN chmod +x /usr/bin/setup-repos
 

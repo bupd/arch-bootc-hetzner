@@ -1,0 +1,15 @@
+ARG SOURCE_IMAGE
+ARG CHUNKAH_IMAGE=quay.io/jlebon/chunkah:v0.3.0
+ARG CHUNKAH_CONFIG_STR
+ARG CHUNKAH_ARGS=--max-layers 128
+
+FROM ${SOURCE_IMAGE} AS builder
+
+FROM ${CHUNKAH_IMAGE} AS chunkah
+ARG CHUNKAH_CONFIG_STR
+ARG CHUNKAH_ARGS
+RUN --mount=from=builder,src=/,target=/chunkah,ro \
+    --mount=type=bind,target=/run/src,rw \
+    chunkah build --config-str "${CHUNKAH_CONFIG_STR}" ${CHUNKAH_ARGS} > /run/src/out.ociarchive
+
+FROM oci-archive:out.ociarchive
