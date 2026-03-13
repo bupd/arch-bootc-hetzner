@@ -66,13 +66,12 @@ sudo podman build --network=host \
 echo ""
 echo "## Rechunking final image with chunkah"
 sudo podman pull "$CHUNKAH_IMAGE"
-export CHUNKAH_CONFIG_STR
 CHUNKAH_CONFIG_STR="$(sudo podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
 sudo podman build --network=host \
     --skip-unused-stages=false \
     --build-arg "SOURCE_IMAGE=${FINAL_IMAGE_TAG}" \
     --build-arg "CHUNKAH_IMAGE=${CHUNKAH_IMAGE}" \
-    --build-arg CHUNKAH_CONFIG_STR \
+    --build-arg "CHUNKAH_CONFIG_STR=${CHUNKAH_CONFIG_STR}" \
     --build-arg "CHUNKAH_ARGS=${CHUNKAH_ARGS}" \
     -f "$REPO_DIR/Containerfile.chunkah" \
     -t "$CHUNKED_IMAGE_TAG" \
