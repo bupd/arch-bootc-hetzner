@@ -52,6 +52,7 @@ fi
 
 CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
 CHUNKAH_ARGS="${CHUNKAH_ARGS:---max-layers 128}"
+read -r -a CHUNKAH_ARGS_ARR <<< "$CHUNKAH_ARGS"
 
 echo "## Using bootc ${BOOTC_VERSION}"
 echo "## Using chunkah ${CHUNKAH_VERSION}"
@@ -82,13 +83,9 @@ CHUNKAH_CONFIG_STR="$(sudo podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
 SOURCE_CID="$(sudo podman create "$FINAL_IMAGE_TAG")"
 SOURCE_MOUNT="$(sudo podman mount "$SOURCE_CID")"
 sudo podman run --rm \
-    -e "CHUNKAH_CONFIG_STR=${CHUNKAH_CONFIG_STR}" \
-    -e "CHUNKAH_ARGS=${CHUNKAH_ARGS}" \
-    -e "ARCHIVE_NAME=$(basename "$CHUNKAH_ARCHIVE_PATH")" \
     -v "${SOURCE_MOUNT}:/chunkah:ro" \
-    -v "${REPO_DIR}:/out:rw" \
     "$CHUNKAH_IMAGE" \
-    sh -ceu 'chunkah build --config-str "$CHUNKAH_CONFIG_STR" ${CHUNKAH_ARGS} > "/out/${ARCHIVE_NAME}"'
+    build --config-str "$CHUNKAH_CONFIG_STR" "${CHUNKAH_ARGS_ARR[@]}" > "$CHUNKAH_ARCHIVE_PATH"
 IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}")"
 sudo podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
