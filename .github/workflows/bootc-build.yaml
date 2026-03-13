@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install lint dependencies
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -35,13 +35,13 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y podman jq curl
 
       - name: Restore podman build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/lib/containers/storage
           key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'scripts/build.sh', 'files/**', '.github/workflows/bootc-build.yaml') }}
@@ -103,7 +103,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install publish dependencies
         run: sudo apt-get update && sudo apt-get install -y podman jq curl
@@ -119,7 +119,7 @@ jobs:
     needs: publish
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y podman jq curl zstd
