@@ -1,6 +1,7 @@
-name: Build Bootc Image
+name: Bootc CI
 
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch:
@@ -9,75 +10,116 @@ env:
   REGISTRY: ${{ vars.REGISTRY }}
   REGISTRY_PROJECT: ${{ vars.REGISTRY_PROJECT }}
   REGISTRY_USERNAME: ${{ vars.REGISTRY_USERNAME }}
+  BASE_IMAGE_TAG: localhost/arch-bootc-base:latest
+  FINAL_IMAGE_TAG: localhost/arch-bootc-hetzner:latest
+  CHUNKED_IMAGE_TAG: localhost/arch-bootc-hetzner-chunked:latest
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install podman
-        run: sudo apt-get update && sudo apt-get install -y podman
+      - name: Install lint dependencies
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Validate shell scripts
+        run: |
+          bash -n scripts/*.sh files/setup-repos.sh
+          shellcheck scripts/*.sh files/setup-repos.sh
+
+  build:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y podman jq curl
 
       - name: Restore podman build cache
         uses: actions/cache@v4
         with:
           path: /var/lib/containers/storage
-          key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'files/*') }}
+          key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'Containerfile.chunkah', 'scripts/build.sh', 'files/**', '.github/workflows/bootc-build.yaml') }}
           restore-keys: |
             podman-build-
 
-      - name: Login to registry
-        env:
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Resolve dependency versions
         run: |
-          podman login "$REGISTRY" \
-            -u "$REGISTRY_USERNAME" \
-            -p "$REGISTRY_PASSWORD"
+          echo "BOOTC_VERSION=$(curl -fsSL https://api.github.com/repos/bootc-dev/bootc/releases/latest | jq -r '.tag_name')" >> "$GITHUB_ENV"
+          echo "CHUNKAH_VERSION=$(curl -fsSL https://api.github.com/repos/coreos/chunkah/releases/latest | jq -r '.tag_name')" >> "$GITHUB_ENV"
 
       - name: Build base image
         run: |
-          podman build --network=host \
+          podman build --pull=always --network=host \
+            --build-arg "BOOTC_VERSION=$BOOTC_VERSION" \
             -f Containerfile.base \
-            -t arch-bootc:latest \
+            -t "$BASE_IMAGE_TAG" \
             .
 
-      - name: Tag base image
-        run: podman tag arch-bootc:latest ghcr.io/bootcrew/arch-bootc:latest
-
-      - name: Build hetzner image
+      - name: Build final image
         run: |
           podman build --network=host \
+            --build-arg "BASE_IMAGE=$BASE_IMAGE_TAG" \
             -f Containerfile \
-            -t "$REGISTRY/$REGISTRY_PROJECT:latest" \
+            -t "$FINAL_IMAGE_TAG" \
             .
 
-      - name: Push image
-        run: podman push "$REGISTRY/$REGISTRY_PROJECT:latest"
+      - name: Rechunk image with chunkah
+        run: |
+          CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
+          CHUNKAH_CONFIG_STR="$(podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
+          podman pull "$CHUNKAH_IMAGE"
+          podman build --network=host \
+            --skip-unused-stages=false \
+            --build-arg "SOURCE_IMAGE=$FINAL_IMAGE_TAG" \
+            --build-arg "CHUNKAH_IMAGE=$CHUNKAH_IMAGE" \
+            --build-arg "CHUNKAH_CONFIG_STR=$CHUNKAH_CONFIG_STR" \
+            --build-arg "CHUNKAH_ARGS=--max-layers 128" \
+            -f Containerfile.chunkah \
+            -t "$CHUNKED_IMAGE_TAG" \
+            .
 
-  disk:
+      - name: Show built image
+        run: podman image inspect "$CHUNKED_IMAGE_TAG" >/dev/null
+
+  publish:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    needs: build
+    needs: lint
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore oras cache
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/bin/oras
-          key: oras-1.2.2
+      - name: Install publish dependencies
+        run: sudo apt-get update && sudo apt-get install -y podman jq curl
+
+      - name: Publish image
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: ./scripts/build.sh "$REGISTRY/$REGISTRY_PROJECT" "$REGISTRY_USERNAME" "$REGISTRY_PASSWORD"
+
+  disk:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y podman jq curl zstd
+
+      - name: Install oras
         run: |
-          sudo apt-get update && sudo apt-get install -y podman zstd
-          if [ ! -f /usr/local/bin/oras ]; then
-            ORAS_VERSION="1.2.2"
-            curl -sLO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
-            tar -xzf "oras_${ORAS_VERSION}_linux_amd64.tar.gz" oras
-            sudo mv oras /usr/local/bin/
-          fi
+          ORAS_VERSION="$(curl -fsSL https://api.github.com/repos/oras-project/oras/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
+          curl -fsSLo oras.tar.gz "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+          tar -xzf oras.tar.gz oras
+          sudo mv oras /usr/local/bin/oras
 
       - name: Login to registry
         env:
