@@ -56,6 +56,10 @@ Fork this repo and edit the `Containerfile`:
 
 # Example
 ./scripts/build.sh registry.example.com/myuser/bootc myuser mypassword
+
+# Or store BOOTC_REGISTRY / BOOTC_USERNAME / BOOTC_PASSWORD in .env
+cp .env.example .env
+./scripts/build.sh
 ```
 
 This takes 20-40 minutes (compiles bootc from source with Rust).
@@ -65,6 +69,9 @@ This takes 20-40 minutes (compiles bootc from source with Rust).
 ```sh
 # Generate disk image, compress, and push to registry via oras
 ./scripts/generate-disk.sh <registry/repo> <username> <password>
+
+# Or reuse BOOTC_* values from .env
+./scripts/generate-disk.sh
 ```
 
 The compressed disk image (~1.7 GiB) gets pushed as `<registry>:disk-latest`.
@@ -201,7 +208,14 @@ sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-gu
 ### Developer CLIs
 - Claude Code (`claude`)
 - OpenAI Codex CLI (`codex`)
+- GitHub CLI (`gh`)
 - fastfetch, btop
+
+### Mosh + tmux
+- `mosh-server` is installed in the image via the `mosh` package
+- UFW allows UDP `60000:61000` for mosh sessions
+- Client-side usage: connect with `mosh <user>@<server-ip>` instead of plain SSH when you want a roaming session
+- Client-side usage: start tmux after login with `tmux new -As main`
 
 ### Security
 - Root login disabled

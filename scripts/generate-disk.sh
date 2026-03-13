@@ -5,17 +5,33 @@ set -euo pipefail
 # push it to a registry using oras.
 #
 # Usage:
-#   ./scripts/generate-disk.sh <registry> [username] [password]
+#   ./scripts/generate-disk.sh [registry] [username] [password]
 #
 # Example:
+#   ./scripts/generate-disk.sh
 #   ./scripts/generate-disk.sh registry.goharbor.io/bupd/bootc robot_bupd+bootc Harbor12345
-
-REGISTRY="${1:?Usage: $0 <registry> [username] [password]}"
-USERNAME="${2:-}"
-PASSWORD="${3:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="${REPO_DIR}/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+fi
+
+REGISTRY="${1:-${BOOTC_REGISTRY:-}}"
+USERNAME="${2:-${BOOTC_USERNAME:-}}"
+PASSWORD="${3:-${BOOTC_PASSWORD:-}}"
+
+if [ -z "$REGISTRY" ]; then
+    echo "Usage: $0 [registry] [username] [password]"
+    echo "Alternatively set BOOTC_REGISTRY in ${ENV_FILE}"
+    exit 1
+fi
+
 OUTPUT_DIR="$REPO_DIR"
 IMG="$OUTPUT_DIR/bootable.img"
 

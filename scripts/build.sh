@@ -4,17 +4,34 @@ set -euo pipefail
 # Build arch-bootc images and push to a container registry.
 #
 # Usage:
-#   ./scripts/build.sh <registry> <username> <password>
+#   ./scripts/build.sh [registry] [username] [password]
 #
 # Example:
+#   ./scripts/build.sh
 #   ./scripts/build.sh registry.goharbor.io/bupd/bootc robot_bupd+bootc Harbor12345
-
-REGISTRY="${1:?Usage: $0 <registry> <username> <password>}"
-USERNAME="${2:?Usage: $0 <registry> <username> <password>}"
-PASSWORD="${3:?Usage: $0 <registry> <username> <password>}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="${REPO_DIR}/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    # Load local registry credentials without exporting unrelated shell state.
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+fi
+
+REGISTRY="${1:-${BOOTC_REGISTRY:-}}"
+USERNAME="${2:-${BOOTC_USERNAME:-}}"
+PASSWORD="${3:-${BOOTC_PASSWORD:-}}"
+
+if [ -z "$REGISTRY" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+    echo "Usage: $0 [registry] [username] [password]"
+    echo "Alternatively set BOOTC_REGISTRY, BOOTC_USERNAME, and BOOTC_PASSWORD in ${ENV_FILE}"
+    exit 1
+fi
+
 REGISTRY_HOST="$(echo "$REGISTRY" | cut -d/ -f1)"
 BASE_IMAGE_TAG="localhost/arch-bootc-base:latest"
 FINAL_IMAGE_TAG="localhost/arch-bootc-hetzner:latest"
@@ -86,7 +103,7 @@ sudo podman run --rm \
     -v "${SOURCE_MOUNT}:/chunkah:ro" \
     "$CHUNKAH_IMAGE" \
     build --config-str "$CHUNKAH_CONFIG_STR" "${CHUNKAH_ARGS_ARR[@]}" > "$CHUNKAH_ARCHIVE_PATH"
-IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}")"
+IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}" | tail -n 1)"
 sudo podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
 echo ""

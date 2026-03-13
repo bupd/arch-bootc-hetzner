@@ -1,2 +1,5 @@
 *.img
 k3s
+.env
+.env.*
+!.env.example

@@ -14,6 +14,8 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     curl \
     wget \
     git \
+    github-cli \
+    mosh \
     tmux \
     zsh \
     bind \
@@ -83,6 +85,7 @@ COPY files/90-k3s-network.conf /usr/lib/sysctl.d/90-k3s-network.conf
 RUN ufw default deny incoming && \
     ufw default allow outgoing && \
     ufw allow ssh && \
+    ufw allow 60000:61000/udp && \
     ufw allow in on tailscale0 && \
     ufw allow from 10.42.0.0/16 && \
     ufw allow from 10.43.0.0/16 && \
@@ -139,7 +142,7 @@ RUN mkdir -p /var/home/bupd/.ssh && chmod 700 /var/home/bupd/.ssh && \
     chown -R bupd:bupd /var/home/bupd/.ssh && \
     mkdir -p /var/home/bupd/code/OSS && chown -R bupd:bupd /var/home/bupd/code
 
-# Repo setup script (bare worktrees for Harbor, Harbor CLI, and Satellite)
+# Repo setup script (bare worktrees for Harbor, Harbor CLI, and Harbor Satellite)
 COPY files/setup-repos.sh /usr/bin/setup-repos
 RUN chmod +x /usr/bin/setup-repos
 
