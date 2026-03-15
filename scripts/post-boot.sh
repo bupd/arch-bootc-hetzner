@@ -13,6 +13,10 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 if [ -z "${TARGET_HOME:-}" ]; then
     TARGET_HOME="$HOME"
 fi
+BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+if [ -x "${BREW_PREFIX}/bin/brew" ]; then
+    export PATH="${BREW_PREFIX}/bin:${BREW_PREFIX}/sbin:${PATH}"
+fi
 
 echo "## Verifying system"
 echo ""
@@ -80,10 +84,39 @@ check_any "kube config" \
 
 echo ""
 echo "Services:"
-for svc in sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled; do
+for svc in sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled ensure-mosh-firewall ensure-homebrew; do
     status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
     echo "  $svc: $status"
 done
+
+echo ""
+echo "## Mosh"
+if command -v mosh-server > /dev/null 2>&1; then
+    echo "mosh-server: installed"
+else
+    echo "mosh-server: MISSING"
+fi
+
+if sudo ufw status | grep -Fq "60000:61000/udp"; then
+    echo "ufw mosh range: present"
+else
+    echo "ufw mosh range: MISSING"
+fi
+
+echo ""
+echo "## Homebrew"
+if command -v brew > /dev/null 2>&1; then
+    echo "brew: installed"
+    brew --version | head -n 1
+else
+    echo "brew: MISSING"
+fi
+
+if command -v opencode > /dev/null 2>&1; then
+    echo "opencode: installed"
+else
+    echo "opencode: MISSING"
+fi
 
 echo ""
 echo "Network:"
