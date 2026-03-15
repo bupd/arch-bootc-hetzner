@@ -1,0 +1,11 @@
+[Unit]
+Description=Ensure Homebrew and managed Brewfile are installed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ensure-homebrew
+
+[Install]
+WantedBy=multi-user.target

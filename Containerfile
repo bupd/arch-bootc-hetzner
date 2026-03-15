@@ -103,9 +103,17 @@ RUN chmod +x /usr/bin/bootc-sync-esp
 COPY files/bootc-sync-esp.service /usr/lib/systemd/system/bootc-sync-esp.service
 COPY files/bootc-sync-esp-finalize.service /usr/lib/systemd/system/bootc-sync-esp-finalize.service
 COPY files/unlock-root.service /usr/lib/systemd/system/unlock-root.service
+COPY files/ensure-mosh-firewall.sh /usr/bin/ensure-mosh-firewall
+COPY files/ensure-mosh-firewall.service /usr/lib/systemd/system/ensure-mosh-firewall.service
+COPY files/ensure-homebrew.sh /usr/bin/ensure-homebrew
+COPY files/ensure-homebrew.service /usr/lib/systemd/system/ensure-homebrew.service
+COPY files/homebrew.sh /etc/profile.d/homebrew.sh
+COPY files/homebrew.Brewfile /usr/share/arch-bootc-hetzner/homebrew/Brewfile
+RUN chmod +x /usr/bin/ensure-mosh-firewall
+RUN chmod +x /usr/bin/ensure-homebrew
 
 # Enable services
-RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0 bootc-sync-esp bootc-sync-esp-finalize unlock-root ufw k3s
+RUN systemctl enable sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled qemu-guest-agent serial-getty@ttyS0 bootc-sync-esp bootc-sync-esp-finalize unlock-root ensure-mosh-firewall ensure-homebrew ufw k3s
 
 # Timezone and locale
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime && \

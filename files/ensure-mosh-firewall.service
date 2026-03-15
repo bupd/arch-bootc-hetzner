@@ -1,0 +1,11 @@
+[Unit]
+Description=Ensure UFW includes Mosh UDP rules
+After=ufw.service
+Requires=ufw.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ensure-mosh-firewall
+
+[Install]
+WantedBy=multi-user.target
