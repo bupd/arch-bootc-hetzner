@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+tty_path=${1:?pane tty path required}
+selection=$(cat)
+
+if [[ -z $selection ]]; then
+    exit 0
+fi
+
+esc=$'\033'
+st="${esc}\\"
+bel=$'\a'
+payload="${esc}]52;c;$(printf '%s' "$selection" | base64 | tr -d '\r\n')${bel}"
+
+wrap_tmux() {
+    local wrapped=$1
+    wrapped=${wrapped//$esc/$esc$esc}
+    printf '%sPtmux;%s%s' "$esc" "$wrapped" "$st"
+}
+
+# Emit multiple variants to maximize the chance that clipboard propagation works
+# through nested tmux layers over SSH.
+{
+    wrap_tmux "$(wrap_tmux "$payload")"
+    wrap_tmux "$payload"
+    printf '%s' "$payload"
+} > "$tty_path"

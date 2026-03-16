@@ -8,7 +8,7 @@ Type=oneshot
 User=bupd
 Environment=HOME=/var/home/bupd
 WorkingDirectory=/var/home/bupd
-ExecStart=/usr/bin/bash -lc 'tmux has-session -t main 2>/dev/null || exec tmux new-session -d -s main -c /var/home/bupd /bin/zsh'
+ExecStart=/usr/bin/bash -lc 'tmux start-server; tmux source-file /var/home/bupd/.config/tmux/bootc.conf; tmux has-session -t main 2>/dev/null || exec tmux new-session -d -s main -c /var/home/bupd /bin/zsh'
 ExecStop=-/usr/bin/tmux kill-session -t main
 RemainAfterExit=yes
 

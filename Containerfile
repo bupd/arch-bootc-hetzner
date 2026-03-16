@@ -202,14 +202,17 @@ RUN cd /var/home/bupd/.claude/skills && \
 
 # Server-specific sessionizer (overrides dotfiles version with correct paths)
 COPY files/sessionizer /var/home/bupd/sessionizer
+COPY files/tmux-osc52-copy /var/home/bupd/.local/bin/tmux-osc52-copy
 RUN chmod +x /var/home/bupd/sessionizer && \
     mkdir -p /var/home/bupd/.local/bin && \
     ln -sf /var/home/bupd/sessionizer /var/home/bupd/.local/bin/sessionizer && \
+    chmod +x /var/home/bupd/.local/bin/tmux-osc52-copy && \
     chown -R bupd:bupd /var/home/bupd/.local
 
 # Zshrc (not managed by stow per .stow-local-ignore)
 COPY files/zshrc /var/home/bupd/.zshrc
-RUN chown bupd:bupd /var/home/bupd/.zshrc /var/home/bupd/sessionizer
+COPY files/tmux-bootc.conf /var/home/bupd/.config/tmux/bootc.conf
+RUN chown bupd:bupd /var/home/bupd/.zshrc /var/home/bupd/sessionizer /var/home/bupd/.config/tmux/bootc.conf /var/home/bupd/.local/bin/tmux-osc52-copy
 
 LABEL containers.bootc 1
 RUN bootc container lint
