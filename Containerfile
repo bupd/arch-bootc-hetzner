@@ -4,62 +4,62 @@ FROM ${BASE_IMAGE}
 # Core server + dev packages
 RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/pacman \
     pacman -Syu --noconfirm \
-    openssh \
-    sudo \
-    vim \
-    neovim \
-    fastfetch \
-    htop \
-    btop \
-    curl \
-    wget \
-    git \
-    github-cli \
-    chromium \
-    mosh \
-    tmux \
-    zsh \
+    base-devel \
     bind \
     bind-tools \
-    stow \
-    fzf \
-    ripgrep \
-    fd \
-    jq \
-    go \
-    gcc \
-    make \
-    unzip \
-    gnupg \
-    rsync \
-    net-tools \
-    iproute2 \
-    traceroute \
-    tailscale \
-    qemu-guest-agent \
-    ufw \
-    grub \
-    less \
-    lazygit \
-    skopeo \
+    btop \
+    chromium \
     crane \
-    podman-docker \
-    podman-compose \
-    kubectl \
-    helm \
-    k9s \
-    yq \
+    curl \
+    fastfetch \
+    fd \
+    fzf \
+    gcc \
+    git \
+    github-cli \
+    go \
+    gnupg \
     gopls \
-    python \
+    grub \
+    helm \
+    htop \
+    iproute2 \
+    jq \
+    k9s \
+    kubectl \
+    lazygit \
+    less \
+    lsof \
     lua \
     luarocks \
-    tree \
-    lsof \
+    make \
     man-db \
-    base-devel \
+    mosh \
+    neovim \
+    net-tools \
     nodejs \
     npm \
+    openssh \
+    podman-compose \
+    podman-docker \
+    python \
     qemu-full \
+    qemu-guest-agent \
+    ripgrep \
+    rsync \
+    skopeo \
+    stow \
+    sudo \
+    tailscale \
+    tmux \
+    traceroute \
+    tree \
+    ufw \
+    unzip \
+    vim \
+    wget \
+    yq \
+    zsh \
     && pacman -S --clean --noconfirm
 
 # Rebuild initramfs if pacman -Syu updated the kernel
