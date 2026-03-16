@@ -15,6 +15,7 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     wget \
     git \
     github-cli \
+    chromium \
     mosh \
     tmux \
     zsh \
