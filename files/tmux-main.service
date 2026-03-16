@@ -1,0 +1,16 @@
+[Unit]
+Description=Ensure persistent tmux main session exists for bupd
+Documentation=man:tmux(1)
+RequiresMountsFor=/var/home/bupd
+
+[Service]
+Type=oneshot
+User=bupd
+Environment=HOME=/var/home/bupd
+WorkingDirectory=/var/home/bupd
+ExecStart=/usr/bin/bash -lc 'tmux has-session -t main 2>/dev/null || exec tmux new-session -d -s main -c /var/home/bupd /bin/zsh'
+ExecStop=-/usr/bin/tmux kill-session -t main
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

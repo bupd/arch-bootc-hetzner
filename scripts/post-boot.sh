@@ -84,7 +84,7 @@ check_any "kube config" \
 
 echo ""
 echo "Services:"
-for svc in sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled ensure-mosh-firewall ensure-homebrew; do
+for svc in sshd systemd-networkd systemd-resolved systemd-timesyncd tailscaled ensure-mosh-firewall ensure-homebrew tmux-main; do
     status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
     echo "  $svc: $status"
 done
@@ -101,6 +101,18 @@ if sudo ufw status | grep -Fq "60000:61000/udp"; then
     echo "ufw mosh range: present"
 else
     echo "ufw mosh range: MISSING"
+fi
+
+if systemctl is-active tmux-main > /dev/null 2>&1; then
+    echo "tmux-main.service: active"
+else
+    echo "tmux-main.service: inactive"
+fi
+
+if sudo -u "$TARGET_USER" tmux has-session -t main 2> /dev/null; then
+    echo "tmux session 'main': present"
+else
+    echo "tmux session 'main': MISSING"
 fi
 
 echo ""

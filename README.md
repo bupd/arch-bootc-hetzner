@@ -44,6 +44,7 @@ scripts/
 Fork this repo and edit the `Containerfile`:
 - Replace the SSH public key with yours
 - Change the username from `bupd` to yours
+- If you change the default username, update any matching paths/users in boot-time services such as `files/tmux-main.service`
 - Update the git config
 - Add/remove packages as needed
 - Update or remove the dotfiles clone
@@ -203,7 +204,7 @@ bootc officially targets Fedora/CentOS. Arch support is community-maintained via
 openssh, sudo, vim, neovim, fastfetch, htop, btop, curl, wget, git, tmux, zsh, stow, fzf, ripgrep, fd, jq, go, gcc, make, unzip, nodejs, npm, gnupg, rsync, net-tools, iproute2, traceroute, tailscale, podman, kubectl, helm, k9s, k3s
 
 ### Services (enabled)
-sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-guest-agent, ufw, ensure-mosh-firewall, ensure-homebrew, k3s, bootc-sync-esp
+sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-guest-agent, ufw, ensure-mosh-firewall, ensure-homebrew, tmux-main, k3s, bootc-sync-esp
 
 ### Developer CLIs
 - Claude Code (`claude`)
@@ -216,8 +217,10 @@ sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-gu
 - `mosh-server` is installed in the image via the `mosh` package
 - UFW allows UDP `60000:61000` for mosh sessions
 - `ensure-mosh-firewall.service` re-applies the Mosh UFW rule at boot if it is missing from either IPv4 or IPv6 rules
-- Client-side usage: connect with `mosh <user>@<server-ip>` instead of plain SSH when you want a roaming session
-- Client-side usage: start tmux after login with `tmux new -As main`
+- `tmux-main.service` creates a detached `main` tmux session for `bupd` on every boot
+- Standard Mosh usage is still `mosh <user>@<server-ip>` because `mosh-server` is launched per connection over SSH
+- Upstream `mosh-server` is intentionally not run as a boot-persistent daemon because it exits if no client connects within 60 seconds
+- After login, attach to the boot-created workspace with `tmux attach -t main`
 
 ### Homebrew
 - Homebrew is installed into `/home/linuxbrew/.linuxbrew` to keep it in the writable user space layer
