@@ -7,6 +7,7 @@ RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/p
     base-devel \
     bind \
     bind-tools \
+    buildah \
     btop \
     chromium \
     crane \
@@ -80,6 +81,7 @@ COPY files/k3s.service /usr/lib/systemd/system/k3s.service
 COPY files/20-ethernet.network /usr/lib/systemd/network/20-ethernet.network
 COPY files/90-k3s-network.conf /usr/lib/sysctl.d/90-k3s-network.conf
 COPY files/10-unqualified-search.conf /etc/containers/registries.conf.d/10-unqualified-search.conf
+RUN mkdir -p /etc/containers && touch /etc/containers/nodocker
 
 # ufw firewall - lockdown for public cloud
 # Configure rules at build time; ufw enable requires iptables/kernel so
