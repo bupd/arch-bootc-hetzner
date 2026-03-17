@@ -201,7 +201,7 @@ bootc officially targets Fedora/CentOS. Arch support is community-maintained via
 ## Included Software
 
 ### Packages
-base-devel, bind, bind-tools, btop, chromium, crane, curl, fastfetch, fd, fzf, gcc, git, github-cli, gnupg, go, gopls, grub, helm, htop, iproute2, jq, k3s, k9s, kubectl, lazygit, less, lsof, lua, luarocks, make, man-db, mosh, neovim, net-tools, nodejs, npm, openssh, podman-compose, podman-docker, python, qemu-full, qemu-guest-agent, ripgrep, rsync, skopeo, stow, sudo, tailscale, tmux, traceroute, tree, ufw, unzip, vim, wget, yq, zsh
+base-devel, bind, bind-tools, buildah, btop, chromium, crane, curl, fastfetch, fd, fzf, gcc, git, github-cli, gnupg, go, gopls, grub, helm, htop, iproute2, jq, k3s, k9s, kubectl, lazygit, less, lsof, lua, luarocks, make, man-db, mosh, neovim, net-tools, nodejs, npm, openssh, podman-compose, podman-docker, python, qemu-full, qemu-guest-agent, ripgrep, rsync, skopeo, stow, sudo, tailscale, tmux, traceroute, tree, ufw, unzip, vim, wget, yq, zsh
 
 ### Services (enabled)
 sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-guest-agent, ufw, ensure-mosh-firewall, ensure-homebrew, tmux-main, k3s, bootc-sync-esp
@@ -212,6 +212,7 @@ sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-gu
 - GitHub CLI (`gh`)
 - fastfetch, btop
 - Homebrew (`brew`) via `/home/linuxbrew/.linuxbrew`
+- `docker` is provided by `podman-docker`, and `/etc/containers/nodocker` is precreated to suppress Podman's compatibility banner
 
 ### Mosh + tmux
 - `mosh-server` is installed in the image via the `mosh` package
