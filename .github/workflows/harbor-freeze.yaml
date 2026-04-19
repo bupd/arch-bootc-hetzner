@@ -1,0 +1,126 @@
+name: Harbor Freeze
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Containerfile.harbor
+      - files/harbor/**
+      - scripts/harbor-*.sh
+      - .github/workflows/harbor-freeze.yaml
+  workflow_dispatch:
+    inputs:
+      harbor_version:
+        description: Harbor version tag (e.g. v2.14.3)
+        default: v2.14.3
+        required: true
+
+env:
+  HARBOR_VERSION: ${{ github.event.inputs.harbor_version || 'v2.14.3' }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/harbor-frozen
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y podman curl
+
+      - name: Enable systemd in container (needed for k3s)
+        run: |
+          sudo systemctl start systemd-sysctl || true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build harbor-dev image
+        run: |
+          sudo podman build \
+            --build-arg HARBOR_VERSION=${{ env.HARBOR_VERSION }} \
+            -f Containerfile.harbor \
+            -t harbor-dev:latest \
+            .
+
+      - name: Start harbor-seed container
+        run: |
+          sudo podman run -d \
+            --name harbor-seed \
+            --privileged \
+            --systemd=always \
+            --device /dev/null:/dev/kmsg \
+            -p 30080:30080 \
+            harbor-dev:latest \
+            /sbin/init
+
+      - name: Wait for k3s node Ready
+        run: |
+          echo "Waiting for k3s to be ready..."
+          until sudo podman exec harbor-seed /usr/bin/kubectl get nodes 2>/dev/null | grep -q " Ready"; do
+            sleep 10
+          done
+          sudo podman exec harbor-seed /usr/bin/kubectl get nodes
+
+      - name: Wait for Harbor API
+        timeout-minutes: 15
+        run: |
+          echo "Waiting for Harbor at http://127.0.0.1:30080 ..."
+          until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do
+            sleep 10
+          done
+          echo "Harbor is UP"
+          curl -sf http://127.0.0.1:30080/api/v2.0/ping
+
+      - name: Verify Harbor pods
+        run: sudo podman exec harbor-seed /usr/bin/kubectl get pods -A
+
+      - name: Commit frozen image
+        run: |
+          FROZEN_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.HARBOR_VERSION }}"
+          FROZEN_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          sudo podman commit harbor-seed "$FROZEN_TAG"
+          sudo podman tag "$FROZEN_TAG" "$FROZEN_LATEST"
+          echo "FROZEN_TAG=$FROZEN_TAG" >> "$GITHUB_ENV"
+          echo "FROZEN_LATEST=$FROZEN_LATEST" >> "$GITHUB_ENV"
+
+      - name: Push frozen image to GHCR
+        run: |
+          sudo podman push "$FROZEN_TAG"
+          sudo podman push "$FROZEN_LATEST"
+          echo ""
+          echo "Frozen image pushed:"
+          echo "  $FROZEN_TAG"
+          echo "  $FROZEN_LATEST"
+
+      - name: Smoke test frozen image
+        timeout-minutes: 10
+        run: |
+          sudo podman stop harbor-seed
+          sudo podman rm harbor-seed
+          sudo podman run -d \
+            --name harbor-verify \
+            --privileged \
+            --systemd=always \
+            --device /dev/null:/dev/kmsg \
+            -p 30080:30080 \
+            "$FROZEN_TAG" \
+            /sbin/init
+          echo "Waiting for Harbor in frozen image..."
+          until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do
+            sleep 10
+          done
+          echo "Frozen image smoke test PASSED"
+          curl -sf http://127.0.0.1:30080/api/v2.0/ping
