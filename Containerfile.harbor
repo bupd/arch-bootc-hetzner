@@ -1,0 +1,123 @@
+# Containerfile.harbor — Harbor v2.14.3 inside k3s inside bootc
+#
+# NOTE: Harbor v2.15.0 was released 2026-03-20 but its Helm chart (v1.19.x)
+# is not yet published. Using v2.14.3 (chart v1.18.3). To upgrade, bump both
+# HARBOR_VERSION and HELM_CHART_VERSION once v1.19.0 drops.
+#
+# ── Build ─────────────────────────────────────────────────────────────
+#   podman build -t harbor-dev:latest -f Containerfile.harbor .
+#
+# ── Run (first boot deploys Harbor via helm, ~5 min) ─────────────────
+#   podman run --name harbor-seed --privileged --systemd=always \
+#              -p 30080:30080 harbor-dev:latest
+#
+#   # Watch progress in another terminal:
+#   podman exec harbor-seed journalctl -u harbor-init -f
+#
+#   # Harbor ready when you see "Harbor deployed"
+#   curl http://127.0.0.1:30080/api/v2.0/ping   # → {"ping":"pong"}
+#
+# ── Freeze (commit running container → instant-start image) ───────────
+#   podman commit harbor-seed harbor-frozen:v2.14.3
+#   podman stop harbor-seed && podman rm harbor-seed
+#
+# ── Run frozen (instant) ──────────────────────────────────────────────
+#   podman run --rm --privileged --systemd=always \
+#              -p 30080:30080 harbor-frozen:v2.14.3
+#   # UI: http://127.0.0.1:30080  admin / Harbor12345
+# ─────────────────────────────────────────────────────────────────────
+
+ARG BASE_IMAGE=ghcr.io/bootcrew/arch-bootc:latest
+FROM ${BASE_IMAGE}
+
+ARG HARBOR_VERSION=v2.14.3
+ARG HELM_CHART_VERSION=1.18.3
+
+# Required packages (base image already has skopeo)
+RUN --mount=type=tmpfs,dst=/tmp \
+    --mount=type=cache,dst=/usr/lib/sysimage/cache/pacman \
+    pacman -Syu --noconfirm curl helm jq && \
+    pacman -S --clean --noconfirm
+
+# k3s binary
+RUN --mount=type=cache,dst=/tmp/k3s-cache \
+    K3S_VER=$(curl -sfL https://update.k3s.io/v1-release/channels \
+        | jq -r '.data[] | select(.id=="stable") | .latest') && \
+    K3S_ENC=$(echo "$K3S_VER" | sed 's/+/%2B/g') && \
+    BASE_URL="https://github.com/k3s-io/k3s/releases/download/${K3S_ENC}" && \
+    BIN_CACHE="/tmp/k3s-cache/k3s-${K3S_VER}" && \
+    [ -f "$BIN_CACHE" ] || curl -sfL -o "$BIN_CACHE" "${BASE_URL}/k3s" && \
+    install -m 755 "$BIN_CACHE" /usr/bin/k3s && \
+    ln -sf /usr/bin/k3s /usr/bin/kubectl
+
+# k3s system air-gap images (pause, coredns, local-path-provisioner)
+# Stored under /usr/share — bootc-safe. Staged into /var at first boot
+# by harbor-images-prep.service.
+RUN --mount=type=cache,dst=/tmp/k3s-cache \
+    K3S_VER=$(curl -sfL https://update.k3s.io/v1-release/channels \
+        | jq -r '.data[] | select(.id=="stable") | .latest') && \
+    K3S_ENC=$(echo "$K3S_VER" | sed 's/+/%2B/g') && \
+    AIR_CACHE="/tmp/k3s-cache/k3s-airgap-${K3S_VER}.tar.zst" && \
+    [ -f "$AIR_CACHE" ] || curl -sfL -o "$AIR_CACHE" \
+        "https://github.com/k3s-io/k3s/releases/download/${K3S_ENC}/k3s-airgap-images-amd64.tar.zst" && \
+    mkdir -p /usr/share/k3s-images && \
+    cp "$AIR_CACHE" /usr/share/k3s-images/k3s-airgap.tar.zst
+
+# Harbor container images — air-gapped under /usr/share (bootc-safe)
+# Image names sourced from goharbor/harbor-helm v1.18.3 values.yaml
+RUN --mount=type=cache,dst=/tmp/harbor-img-cache \
+    mkdir -p /var/tmp /usr/share/k3s-images && \
+    for img in \
+        goharbor/harbor-core \
+        goharbor/harbor-portal \
+        goharbor/harbor-jobservice \
+        goharbor/registry-photon \
+        goharbor/harbor-registryctl \
+        goharbor/harbor-db \
+        goharbor/redis-photon \
+        goharbor/trivy-adapter-photon \
+        goharbor/harbor-exporter \
+        goharbor/nginx-photon; \
+    do \
+        name=$(echo "$img" | tr '/' '-'); \
+        cached="/tmp/harbor-img-cache/${name}-${HARBOR_VERSION}.tar"; \
+        [ -f "$cached" ] || skopeo copy \
+            --override-os linux --override-arch amd64 \
+            "docker://docker.io/${img}:${HARBOR_VERSION}" \
+            "docker-archive:${cached}:docker.io/${img}:${HARBOR_VERSION}"; \
+        cp "$cached" "/usr/share/k3s-images/${name}.tar"; \
+    done
+
+# Harbor Helm chart — pre-downloaded, no internet needed at first boot
+# Redirect helm dirs to /tmp to avoid /root -> /var/roothome symlink issue at build time
+RUN mkdir -p /usr/share/harbor/charts /tmp/helm && \
+    export HELM_DATA_HOME=/tmp/helm HELM_CONFIG_HOME=/tmp/helm HELM_CACHE_HOME=/tmp/helm && \
+    helm repo add harbor https://helm.goharbor.io && \
+    helm repo update && \
+    helm pull harbor/harbor \
+        --version "${HELM_CHART_VERSION}" \
+        --destination /usr/share/harbor/charts
+
+# Config, init scripts, and systemd units
+COPY files/harbor/values.yaml /usr/share/harbor/values.yaml
+COPY files/harbor/harbor-init.sh /usr/bin/harbor-init
+COPY files/harbor/harbor-images-stage.sh /usr/bin/harbor-images-stage
+COPY files/harbor/harbor-init.service /usr/lib/systemd/system/harbor-init.service
+COPY files/harbor/harbor-images-prep.service /usr/lib/systemd/system/harbor-images-prep.service
+COPY files/harbor/k3s-harbor.service /usr/lib/systemd/system/k3s.service
+COPY files/20-ethernet.network /usr/lib/systemd/network/20-ethernet.network
+COPY files/90-k3s-network.conf /usr/lib/sysctl.d/90-k3s-network.conf
+COPY files/10-unqualified-search.conf /etc/containers/registries.conf.d/10-unqualified-search.conf
+
+RUN chmod +x /usr/bin/harbor-init /usr/bin/harbor-images-stage && \
+    mkdir -p /etc/containers && touch /etc/containers/nodocker
+
+# Enable services
+RUN systemctl enable systemd-networkd systemd-resolved \
+    harbor-images-prep k3s harbor-init
+
+# Timezone
+RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+LABEL containers.bootc 1
+RUN bootc container lint

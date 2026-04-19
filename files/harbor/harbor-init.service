@@ -1,0 +1,16 @@
+[Unit]
+Description=Deploy Harbor via Helm (first boot only)
+After=k3s.service
+Requires=k3s.service
+ConditionPathExists=!/var/lib/harbor-deployed
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/harbor-init
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+# Harbor v2.14.3 — NodePort, no TLS, local/CI testing
+expose:
+  type: nodePort
+  tls:
+    enabled: false
+  nodePort:
+    ports:
+      http:
+        port: 80
+        nodePort: 30080
+
+externalURL: http://127.0.0.1:30080
+harborAdminPassword: "Harbor12345"
+
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+
+trivy:
+  enabled: true
