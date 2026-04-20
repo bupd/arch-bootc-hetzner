@@ -13,8 +13,7 @@ ExecStart=/usr/bin/k3s server \
     --disable metrics-server \
     --node-name harbor-node \
     --tls-san 127.0.0.1 \
-    --snapshotter native \
-    --kubelet-arg=cgroup-driver=systemd
+    --snapshotter native
 KillMode=process
 Delegate=yes
 OOMScoreAdjust=-999

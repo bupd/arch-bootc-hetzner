@@ -33,7 +33,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-DEPLOY=$(ls -dt "$ROOT_MNT"/ostree/deploy/default/deploy/*.0 2>/dev/null | head -1 || true)
+DEPLOY=$(find "$ROOT_MNT/ostree/deploy/default/deploy/" -maxdepth 1 -name '*.0' -type d 2>/dev/null | head -1 || true)
 if [ -z "$DEPLOY" ]; then
     log "no ostree deployment found under $ROOT_MNT"
     exit 1
@@ -67,7 +67,7 @@ sed -i 's|/boot/ostree/|/ostree/|g' "$ESP_MNT/loader/entries/"*.conf
 if [ -f "$ESP_MNT/loader/entries/ostree-2.conf" ]; then
     printf 'default ostree-2.conf\ntimeout 5\n' > "$ESP_MNT/loader/loader.conf"
 else
-    first_entry=$(basename "$(ls -1 "$ESP_MNT/loader/entries/"*.conf | head -1)")
+    first_entry=$(find "$ESP_MNT/loader/entries/" -maxdepth 1 -name '*.conf' | head -1 | xargs basename)
     printf 'default %s\ntimeout 5\n' "$first_entry" > "$ESP_MNT/loader/loader.conf"
 fi
 

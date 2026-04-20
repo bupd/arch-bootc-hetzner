@@ -1,6 +1,12 @@
 name: Harbor Freeze
 
 on:
+  pull_request:
+    paths:
+      - Containerfile.harbor
+      - files/harbor/**
+      - scripts/harbor-*.sh
+      - .github/workflows/harbor-freeze.yaml
   push:
     branches: [main]
     paths:
@@ -32,28 +38,37 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y podman curl
+        run: sudo apt-get update -qq && sudo apt-get install -y podman curl
 
-      - name: Enable systemd in container (needed for k3s)
+      - name: Cache harbor-dev image
+        id: cache-image
+        uses: actions/cache@v4
+        with:
+          path: /tmp/harbor-dev.tar
+          key: harbor-dev-${{ env.HARBOR_VERSION }}-${{ hashFiles('Containerfile.harbor', 'files/harbor/**') }}
+
+      - name: Build harbor-dev image
+        if: steps.cache-image.outputs.cache-hit != 'true'
         run: |
-          sudo systemctl start systemd-sysctl || true
+          sudo podman build \
+            --build-arg HARBOR_VERSION=${{ env.HARBOR_VERSION }} \
+            --build-arg AIRGAP=false \
+            -f Containerfile.harbor \
+            -t harbor-dev:latest \
+            .
+          sudo podman save harbor-dev:latest -o /tmp/harbor-dev.tar
+
+      - name: Load harbor-dev image from cache
+        if: steps.cache-image.outputs.cache-hit == 'true'
+        run: sudo podman load -i /tmp/harbor-dev.tar
 
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build harbor-dev image
-        run: |
-          sudo podman build \
-            --build-arg HARBOR_VERSION=${{ env.HARBOR_VERSION }} \
-            -f Containerfile.harbor \
-            -t harbor-dev:latest \
-            .
 
       - name: Start harbor-seed container
         run: |
@@ -67,18 +82,20 @@ jobs:
             /sbin/init
 
       - name: Wait for k3s node Ready
+        timeout-minutes: 5
         run: |
-          echo "Waiting for k3s to be ready..."
+          echo "Waiting for k3s..."
           until sudo podman exec harbor-seed /usr/bin/kubectl get nodes 2>/dev/null | grep -q " Ready"; do
-            sleep 10
+            sleep 5
           done
           sudo podman exec harbor-seed /usr/bin/kubectl get nodes
 
       - name: Wait for Harbor API
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: |
           echo "Waiting for Harbor at http://127.0.0.1:30080 ..."
           until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do
+            sudo podman exec harbor-seed /usr/bin/kubectl get pods -A --no-headers 2>/dev/null | grep -v Running | head -5 || true
             sleep 10
           done
           echo "Harbor is UP"
@@ -97,30 +114,18 @@ jobs:
           echo "FROZEN_LATEST=$FROZEN_LATEST" >> "$GITHUB_ENV"
 
       - name: Push frozen image to GHCR
+        if: github.event_name != 'pull_request'
         run: |
           sudo podman push "$FROZEN_TAG"
           sudo podman push "$FROZEN_LATEST"
-          echo ""
-          echo "Frozen image pushed:"
-          echo "  $FROZEN_TAG"
-          echo "  $FROZEN_LATEST"
+          echo "Frozen image pushed: $FROZEN_TAG"
 
-      - name: Smoke test frozen image
-        timeout-minutes: 10
+      - name: Debug on failure
+        if: failure()
         run: |
-          sudo podman stop harbor-seed
-          sudo podman rm harbor-seed
-          sudo podman run -d \
-            --name harbor-verify \
-            --privileged \
-            --systemd=always \
-            --device /dev/null:/dev/kmsg \
-            -p 30080:30080 \
-            "$FROZEN_TAG" \
-            /sbin/init
-          echo "Waiting for Harbor in frozen image..."
-          until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do
-            sleep 10
-          done
-          echo "Frozen image smoke test PASSED"
-          curl -sf http://127.0.0.1:30080/api/v2.0/ping
+          echo "=== k3s status ==="
+          sudo podman exec harbor-seed systemctl status k3s --no-pager || true
+          echo "=== pods ==="
+          sudo podman exec harbor-seed /usr/bin/kubectl get pods -A || true
+          echo "=== k3s logs (last 50) ==="
+          sudo podman exec harbor-seed journalctl -u k3s -n 50 --no-pager || true

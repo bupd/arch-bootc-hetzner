@@ -3,6 +3,14 @@
 # Usage:
 #   ./scripts/harbor-run.sh                      # run harbor-dev:latest
 #   ./scripts/harbor-run.sh harbor-frozen:v2.14.3 # run frozen image
+#
+# Host requirement (one-time, rootful):
+#   sudo mkdir -p /etc/systemd/system/user@.service.d
+#   sudo tee /etc/systemd/system/user@.service.d/delegate.conf <<'EOF'
+#   [Service]
+#   Delegate=cpu cpuset io memory pids
+#   EOF
+#   sudo systemctl daemon-reload && systemctl --user daemon-reload
 set -euo pipefail
 
 IMAGE=${1:-harbor-dev:latest}
@@ -10,7 +18,7 @@ NAME=${2:-harbor-seed}
 
 echo "Starting ${IMAGE} as '${NAME}'..."
 
-sudo podman run -d \
+podman run -d \
   --name "$NAME" \
   --privileged \
   --systemd=always \

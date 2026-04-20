@@ -32,6 +32,9 @@ FROM ${BASE_IMAGE}
 
 ARG HARBOR_VERSION=v2.14.3
 ARG HELM_CHART_VERSION=1.18.3
+# AIRGAP=true  → bake all Harbor images into the image (for offline/frozen use)
+# AIRGAP=false → skip image baking, k3s pulls from Docker Hub at runtime (for CI)
+ARG AIRGAP=true
 
 # Required packages (base image already has skopeo)
 RUN --mount=type=tmpfs,dst=/tmp \
@@ -64,29 +67,31 @@ RUN --mount=type=cache,dst=/tmp/k3s-cache \
     cp "$AIR_CACHE" /usr/share/k3s-images/k3s-airgap.tar.zst
 
 # Harbor container images — air-gapped under /usr/share (bootc-safe)
+# Skipped when AIRGAP=false (CI mode: k3s pulls from Docker Hub at runtime)
 # Image names sourced from goharbor/harbor-helm v1.18.3 values.yaml
 RUN --mount=type=cache,dst=/tmp/harbor-img-cache \
     mkdir -p /var/tmp /usr/share/k3s-images && \
-    for img in \
-        goharbor/harbor-core \
-        goharbor/harbor-portal \
-        goharbor/harbor-jobservice \
-        goharbor/registry-photon \
-        goharbor/harbor-registryctl \
-        goharbor/harbor-db \
-        goharbor/redis-photon \
-        goharbor/trivy-adapter-photon \
-        goharbor/harbor-exporter \
-        goharbor/nginx-photon; \
-    do \
-        name=$(echo "$img" | tr '/' '-'); \
-        cached="/tmp/harbor-img-cache/${name}-${HARBOR_VERSION}.tar"; \
-        [ -f "$cached" ] || skopeo copy \
-            --override-os linux --override-arch amd64 \
-            "docker://docker.io/${img}:${HARBOR_VERSION}" \
-            "docker-archive:${cached}:docker.io/${img}:${HARBOR_VERSION}"; \
-        cp "$cached" "/usr/share/k3s-images/${name}.tar"; \
-    done
+    if [ "$AIRGAP" = "true" ]; then \
+      for img in \
+          goharbor/harbor-core \
+          goharbor/harbor-portal \
+          goharbor/harbor-jobservice \
+          goharbor/registry-photon \
+          goharbor/harbor-registryctl \
+          goharbor/harbor-db \
+          goharbor/redis-photon \
+          goharbor/harbor-exporter \
+          goharbor/nginx-photon; \
+      do \
+          name=$(echo "$img" | tr '/' '-'); \
+          cached="/tmp/harbor-img-cache/${name}-${HARBOR_VERSION}.tar"; \
+          [ -f "$cached" ] || skopeo copy \
+              --override-os linux --override-arch amd64 \
+              "docker://docker.io/${img}:${HARBOR_VERSION}" \
+              "docker-archive:${cached}:docker.io/${img}:${HARBOR_VERSION}"; \
+          cp "$cached" "/usr/share/k3s-images/${name}.tar"; \
+      done; \
+    fi
 
 # Harbor Helm chart — pre-downloaded, no internet needed at first boot
 # Redirect helm dirs to /tmp to avoid /root -> /var/roothome symlink issue at build time

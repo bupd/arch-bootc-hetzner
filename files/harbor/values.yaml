@@ -17,4 +17,4 @@ persistence:
   resourcePolicy: "keep"
 
 trivy:
-  enabled: true
+  enabled: false

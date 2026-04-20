@@ -22,7 +22,7 @@ echo "## Verifying system"
 echo ""
 
 echo "OS:"
-cat /etc/os-release | grep PRETTY_NAME
+grep PRETTY_NAME /etc/os-release
 
 echo ""
 echo "Bootc status:"
