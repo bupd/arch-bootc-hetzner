@@ -10,12 +10,12 @@ echo "Checking Harbor is healthy before freeze..."
 curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null || { echo "Harbor not responding on :30080"; exit 1; }
 
 echo "Committing ${SRC} → ${TAG}..."
-sudo podman commit "$SRC" "$TAG"
+podman commit "$SRC" "$TAG"
 
 echo "Stopping seed container..."
-sudo podman stop "$SRC"
-sudo podman rm "$SRC"
+podman stop "$SRC"
+podman rm "$SRC"
 
 echo ""
 echo "Frozen image ready: ${TAG}"
-echo "Run it: sudo podman run --privileged --systemd=always --device /dev/null:/dev/kmsg -p 30080:30080 ${TAG} /sbin/init"
+echo "Run it: podman run --privileged --systemd=always --device /dev/null:/dev/kmsg -p 30080:30080 ${TAG} /sbin/init"
