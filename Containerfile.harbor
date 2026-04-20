@@ -75,7 +75,6 @@ RUN --mount=type=cache,dst=/tmp/harbor-img-cache \
         goharbor/harbor-registryctl \
         goharbor/harbor-db \
         goharbor/redis-photon \
-        goharbor/trivy-adapter-photon \
         goharbor/harbor-exporter \
         goharbor/nginx-photon; \
     do \

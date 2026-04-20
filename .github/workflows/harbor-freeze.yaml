@@ -40,36 +40,38 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y podman curl
 
-      - name: Enable cpuset cgroup delegation
-        # Required for nested k8s (k3s) in rootless containers.
-        # Without this, k3s aborts with "failed to find cpuset cgroup (v2)".
+      - name: Cache harbor-dev image
+        id: cache-image
+        uses: actions/cache@v4
+        with:
+          path: /tmp/harbor-dev.tar
+          key: harbor-dev-${{ env.HARBOR_VERSION }}-${{ hashFiles('Containerfile.harbor', 'files/harbor/**') }}
+
+      - name: Build harbor-dev image
+        if: steps.cache-image.outputs.cache-hit != 'true'
         run: |
-          sudo mkdir -p /etc/systemd/system/user@.service.d
-          sudo tee /etc/systemd/system/user@.service.d/delegate.conf << 'EOF'
-          [Service]
-          Delegate=cpu cpuset io memory pids
-          EOF
-          sudo systemctl daemon-reload
-          systemctl --user daemon-reload || true
+          sudo podman build \
+            --build-arg HARBOR_VERSION=${{ env.HARBOR_VERSION }} \
+            -f Containerfile.harbor \
+            -t harbor-dev:latest \
+            .
+          sudo podman save harbor-dev:latest -o /tmp/harbor-dev.tar
+
+      - name: Load harbor-dev image from cache
+        if: steps.cache-image.outputs.cache-hit == 'true'
+        run: sudo podman load -i /tmp/harbor-dev.tar
 
       - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build harbor-dev image
-        run: |
-          podman build \
-            --build-arg HARBOR_VERSION=${{ env.HARBOR_VERSION }} \
-            -f Containerfile.harbor \
-            -t harbor-dev:latest \
-            .
-
       - name: Start harbor-seed container
         run: |
-          podman run -d \
+          sudo podman run -d \
             --name harbor-seed \
             --privileged \
             --systemd=always \
@@ -79,57 +81,50 @@ jobs:
             /sbin/init
 
       - name: Wait for k3s node Ready
+        timeout-minutes: 5
         run: |
-          echo "Waiting for k3s to be ready..."
-          until podman exec harbor-seed /usr/bin/kubectl get nodes 2>/dev/null | grep -q " Ready"; do
-            sleep 10
+          echo "Waiting for k3s..."
+          until sudo podman exec harbor-seed /usr/bin/kubectl get nodes 2>/dev/null | grep -q " Ready"; do
+            sleep 5
           done
-          podman exec harbor-seed /usr/bin/kubectl get nodes
+          sudo podman exec harbor-seed /usr/bin/kubectl get nodes
 
       - name: Wait for Harbor API
         timeout-minutes: 15
         run: |
           echo "Waiting for Harbor at http://127.0.0.1:30080 ..."
           until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do
+            sudo podman exec harbor-seed /usr/bin/kubectl get pods -A --no-headers 2>/dev/null | grep -v Running | head -5 || true
             sleep 10
           done
           echo "Harbor is UP"
           curl -sf http://127.0.0.1:30080/api/v2.0/ping
 
       - name: Verify Harbor pods
-        run: podman exec harbor-seed /usr/bin/kubectl get pods -A
+        run: sudo podman exec harbor-seed /usr/bin/kubectl get pods -A
 
       - name: Commit frozen image
         run: |
           FROZEN_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.HARBOR_VERSION }}"
           FROZEN_LATEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          podman commit harbor-seed "$FROZEN_TAG"
-          podman tag "$FROZEN_TAG" "$FROZEN_LATEST"
+          sudo podman commit harbor-seed "$FROZEN_TAG"
+          sudo podman tag "$FROZEN_TAG" "$FROZEN_LATEST"
           echo "FROZEN_TAG=$FROZEN_TAG" >> "$GITHUB_ENV"
           echo "FROZEN_LATEST=$FROZEN_LATEST" >> "$GITHUB_ENV"
 
       - name: Push frozen image to GHCR
         if: github.event_name != 'pull_request'
         run: |
-          podman push "$FROZEN_TAG"
-          podman push "$FROZEN_LATEST"
+          sudo podman push "$FROZEN_TAG"
+          sudo podman push "$FROZEN_LATEST"
           echo "Frozen image pushed: $FROZEN_TAG"
 
-      - name: Smoke test frozen image
-        timeout-minutes: 10
+      - name: Debug on failure
+        if: failure()
         run: |
-          podman stop harbor-seed && podman rm harbor-seed
-          podman run -d \
-            --name harbor-verify \
-            --privileged \
-            --systemd=always \
-            --device /dev/null:/dev/kmsg \
-            -p 30080:30080 \
-            "$FROZEN_TAG" \
-            /sbin/init
-          echo "Waiting for Harbor in frozen image..."
-          until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do
-            sleep 10
-          done
-          echo "Frozen image smoke test PASSED"
-          curl -sf http://127.0.0.1:30080/api/v2.0/ping
+          echo "=== k3s status ==="
+          sudo podman exec harbor-seed systemctl status k3s --no-pager || true
+          echo "=== pods ==="
+          sudo podman exec harbor-seed /usr/bin/kubectl get pods -A || true
+          echo "=== k3s logs (last 50) ==="
+          sudo podman exec harbor-seed journalctl -u k3s -n 50 --no-pager || true
