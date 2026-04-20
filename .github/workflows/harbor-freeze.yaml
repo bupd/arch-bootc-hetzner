@@ -1,6 +1,12 @@
 name: Harbor Freeze
 
 on:
+  pull_request:
+    paths:
+      - Containerfile.harbor
+      - files/harbor/**
+      - scripts/harbor-*.sh
+      - .github/workflows/harbor-freeze.yaml
   push:
     branches: [main]
     paths:
@@ -103,6 +109,7 @@ jobs:
           echo "FROZEN_LATEST=$FROZEN_LATEST" >> "$GITHUB_ENV"
 
       - name: Push frozen image to GHCR
+        if: github.event_name != 'pull_request'
         run: |
           podman push "$FROZEN_TAG"
           podman push "$FROZEN_LATEST"

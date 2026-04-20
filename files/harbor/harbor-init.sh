@@ -10,7 +10,7 @@ until kubectl get nodes --no-headers 2>/dev/null | grep -q " Ready"; do
 done
 log "k3s ready — node: $(kubectl get nodes --no-headers | awk '{print $1, $2}')"
 
-CHART=$(ls /usr/share/harbor/charts/harbor-*.tgz | head -1)
+CHART=$(find /usr/share/harbor/charts/ -name 'harbor-*.tgz' | head -1)
 log "installing Harbor from ${CHART}..."
 
 helm install harbor "$CHART" \

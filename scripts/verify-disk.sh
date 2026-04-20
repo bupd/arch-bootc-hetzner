@@ -101,18 +101,18 @@ fi
 
 echo ""
 echo "## Ostree Deployment"
-DEPLOY=$(ls -d /mnt/ostree/deploy/default/deploy/*.0 2>/dev/null | head -1)
+DEPLOY=$(find /mnt/ostree/deploy/default/deploy/ -maxdepth 1 -name '*.0' -type d 2>/dev/null | head -1)
 check "Deployment exists" "$DEPLOY"
 
 if [ -n "$DEPLOY" ]; then
     echo ""
     echo "## SSH Access"
-    check "sshd enabled" "$(ls $DEPLOY/etc/systemd/system/multi-user.target.wants/sshd.service 2>/dev/null)"
+    check "sshd enabled" "$(ls "$DEPLOY"/etc/systemd/system/multi-user.target.wants/sshd.service 2>/dev/null)"
     check "authorized_keys exists" "$(ls "$DEPLOY"/var/home/*/.ssh/authorized_keys 2>/dev/null)"
 
     echo ""
     echo "## Network"
-    check "networkd enabled" "$(find $DEPLOY/etc/systemd -name '*networkd.service' 2>/dev/null)"
+    check "networkd enabled" "$(find "$DEPLOY"/etc/systemd -name '*networkd.service' 2>/dev/null)"
 fi
 
 echo ""

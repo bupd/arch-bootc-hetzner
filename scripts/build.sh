@@ -102,7 +102,7 @@ SOURCE_MOUNT="$(sudo podman mount "$SOURCE_CID")"
 sudo podman run --rm \
     -v "${SOURCE_MOUNT}:/chunkah:ro" \
     "$CHUNKAH_IMAGE" \
-    build --config-str "$CHUNKAH_CONFIG_STR" "${CHUNKAH_ARGS_ARR[@]}" > "$CHUNKAH_ARCHIVE_PATH"
+    build --config-str "$CHUNKAH_CONFIG_STR" "${CHUNKAH_ARGS_ARR[@]}" | sudo tee "$CHUNKAH_ARCHIVE_PATH" > /dev/null
 IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}" | tail -n 1)"
 sudo podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
