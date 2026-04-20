@@ -52,6 +52,7 @@ jobs:
         run: |
           sudo podman build \
             --build-arg HARBOR_VERSION=${{ env.HARBOR_VERSION }} \
+            --build-arg AIRGAP=false \
             -f Containerfile.harbor \
             -t harbor-dev:latest \
             .
@@ -90,7 +91,7 @@ jobs:
           sudo podman exec harbor-seed /usr/bin/kubectl get nodes
 
       - name: Wait for Harbor API
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: |
           echo "Waiting for Harbor at http://127.0.0.1:30080 ..."
           until curl -sf http://127.0.0.1:30080/api/v2.0/ping >/dev/null 2>&1; do

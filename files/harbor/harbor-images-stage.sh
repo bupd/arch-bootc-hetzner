@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 mkdir -p /var/lib/rancher/k3s/agent/images
-cp /usr/share/k3s-images/*.tar /var/lib/rancher/k3s/agent/images/
+# In AIRGAP=false (CI) mode there are no Harbor tars; only copy what exists.
+cp /usr/share/k3s-images/*.tar /var/lib/rancher/k3s/agent/images/ 2>/dev/null || true
 cp /usr/share/k3s-images/*.zst /var/lib/rancher/k3s/agent/images/ 2>/dev/null || true
 touch /var/lib/rancher/k3s/agent/images/.staged
 

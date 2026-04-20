@@ -18,7 +18,7 @@ helm install harbor "$CHART" \
     --create-namespace \
     --values /usr/share/harbor/values.yaml \
     --wait \
-    --timeout 10m
+    --timeout 25m
 
 log "Harbor deployed"
 log "  UI:       http://127.0.0.1:30080"
