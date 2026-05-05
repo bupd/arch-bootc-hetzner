@@ -85,7 +85,7 @@ if [ -z "$CHUNKAH_VERSION" ] || [ "$CHUNKAH_VERSION" = "null" ]; then
     exit 1
 fi
 
-CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
+CHUNKAH_IMAGE="quay.io/coreos/chunkah:${CHUNKAH_VERSION}"
 CHUNKAH_ARGS="${CHUNKAH_ARGS:---max-layers 128}"
 read -r -a CHUNKAH_ARGS_ARR <<< "$CHUNKAH_ARGS"
 

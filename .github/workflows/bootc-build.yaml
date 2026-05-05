@@ -70,7 +70,7 @@ jobs:
 
       - name: Rechunk image with chunkah
         run: |
-          CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
+          CHUNKAH_IMAGE="quay.io/coreos/chunkah:${CHUNKAH_VERSION}"
           CHUNKAH_CONFIG_STR="$(sudo podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
           CHUNKAH_ARCHIVE_PATH="$(mktemp "$PWD/chunkah-XXXXXX.ociarchive")"
           SOURCE_CID="$(sudo podman create "$FINAL_IMAGE_TAG")"
