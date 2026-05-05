@@ -22,7 +22,7 @@ ORAS_VERSION="1.2.2"
 echo "## Target disk: $DISK"
 lsblk "$DISK"
 echo ""
-read -p "This will ERASE $DISK. Continue? (yes/no): " confirm
+read -r -p "This will ERASE $DISK. Continue? (yes/no): " confirm
 if [ "$confirm" != "yes" ]; then
     echo "Aborted."
     exit 1
@@ -92,7 +92,7 @@ if [ -n "$EFI_PART" ]; then
     ESP=/mnt/boot/efi
 
     # Find the latest ostree deployment
-    DEPLOY=$(ls -dt /mnt/ostree/deploy/default/deploy/*.0 2>/dev/null | head -1)
+    DEPLOY=$(find /mnt/ostree/deploy/default/deploy -maxdepth 1 -type d -name '*.0' -print -quit 2>/dev/null || true)
 
     if [ -n "$DEPLOY" ]; then
         # Install systemd-boot EFI binary
@@ -118,7 +118,8 @@ if [ -n "$EFI_PART" ]; then
             if [ -f "$ESP/loader/entries/ostree-2.conf" ]; then
                 printf "default ostree-2.conf\ntimeout 5\n" > "$ESP/loader/loader.conf"
             else
-                FIRST_ENTRY=$(basename "$(ls -1 "$ESP/loader/entries/"*.conf | head -1)")
+                FIRST_ENTRY_PATH=$(find "$ESP/loader/entries" -maxdepth 1 -name '*.conf' -print -quit)
+                FIRST_ENTRY=$(basename "$FIRST_ENTRY_PATH")
                 printf "default %s\ntimeout 5\n" "$FIRST_ENTRY" > "$ESP/loader/loader.conf"
             fi
         fi

@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install lint dependencies
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -34,13 +34,13 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y podman jq curl
 
       - name: Restore podman build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/lib/containers/storage
           key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'scripts/build.sh', 'files/**', '.github/workflows/bootc-build.yaml') }}
@@ -54,7 +54,7 @@ jobs:
 
       - name: Build base image
         run: |
-          podman build --pull=always --network=host \
+          sudo podman build --pull=always --network=host \
             --build-arg "BOOTC_VERSION=$BOOTC_VERSION" \
             -f Containerfile.base \
             -t "$BASE_IMAGE_TAG" \
@@ -62,7 +62,7 @@ jobs:
 
       - name: Build final image
         run: |
-          podman build --network=host \
+          sudo podman build --network=host \
             --build-arg "BASE_IMAGE=$BASE_IMAGE_TAG" \
             -f Containerfile \
             -t "$FINAL_IMAGE_TAG" \
@@ -71,26 +71,26 @@ jobs:
       - name: Rechunk image with chunkah
         run: |
           CHUNKAH_IMAGE="quay.io/jlebon/chunkah:${CHUNKAH_VERSION}"
-          CHUNKAH_CONFIG_STR="$(podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
+          CHUNKAH_CONFIG_STR="$(sudo podman inspect "$FINAL_IMAGE_TAG" | jq -c '.')"
           CHUNKAH_ARCHIVE_PATH="$(mktemp "$PWD/chunkah-XXXXXX.ociarchive")"
-          SOURCE_CID="$(podman create "$FINAL_IMAGE_TAG")"
-          SOURCE_MOUNT="$(podman mount "$SOURCE_CID")"
+          SOURCE_CID="$(sudo podman create "$FINAL_IMAGE_TAG")"
+          SOURCE_MOUNT="$(sudo podman mount "$SOURCE_CID")"
           cleanup() {
-            podman unmount "$SOURCE_CID" >/dev/null 2>&1 || true
-            podman rm -f "$SOURCE_CID" >/dev/null 2>&1 || true
+            sudo podman unmount "$SOURCE_CID" >/dev/null 2>&1 || true
+            sudo podman rm -f "$SOURCE_CID" >/dev/null 2>&1 || true
             rm -f "$CHUNKAH_ARCHIVE_PATH"
           }
           trap cleanup EXIT
-          podman pull "$CHUNKAH_IMAGE"
-          podman run --rm \
+          sudo podman pull "$CHUNKAH_IMAGE"
+          sudo podman run --rm \
             -v "$SOURCE_MOUNT:/chunkah:ro" \
             "$CHUNKAH_IMAGE" \
             build --config-str "$CHUNKAH_CONFIG_STR" --max-layers 128 > "$CHUNKAH_ARCHIVE_PATH"
-          IMPORTED_IMAGE="$(podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}")"
-          podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
+          IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}" | tail -n 1)"
+          sudo podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
       - name: Show built image
-        run: podman image inspect "$CHUNKED_IMAGE_TAG" >/dev/null
+        run: sudo podman image inspect "$CHUNKED_IMAGE_TAG" >/dev/null
 
   publish:
     if: github.event_name != 'pull_request'
@@ -101,7 +101,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install publish dependencies
         run: sudo apt-get update && sudo apt-get install -y podman jq curl
@@ -124,7 +124,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y podman jq curl zstd
