@@ -5,15 +5,19 @@ set -euo pipefail
 # push it to a registry using oras.
 #
 # Usage:
-#   ./scripts/generate-disk.sh [registry] [username] [password]
+#   ./scripts/generate-disk.sh [image-ref] [username] [password]
 #
 # Example:
 #   ./scripts/generate-disk.sh
-#   ./scripts/generate-disk.sh registry.goharbor.io/bupd/bootc robot_bupd+bootc Harbor12345
+#   ./scripts/generate-disk.sh ghcr.io/bupd/bootc your-github-username your-ghcr-token
+#   BOOTC_IMAGE_REFS="ghcr.io/bupd/bootc docker.io/bupd/bootc" ./scripts/generate-disk.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="${REPO_DIR}/.env"
+
+# shellcheck source=scripts/registry-auth.sh
+source "${SCRIPT_DIR}/registry-auth.sh"
 
 if [ -f "$ENV_FILE" ]; then
     set -a
@@ -22,22 +26,58 @@ if [ -f "$ENV_FILE" ]; then
     set +a
 fi
 
-REGISTRY="${1:-${BOOTC_REGISTRY:-}}"
-USERNAME="${2:-${BOOTC_USERNAME:-}}"
-PASSWORD="${3:-${BOOTC_PASSWORD:-}}"
+ARG_USERNAME=""
+ARG_PASSWORD=""
+IMAGE_REFS=()
 
-if [ -z "$REGISTRY" ]; then
-    echo "Usage: $0 [registry] [username] [password]"
-    echo "Alternatively set BOOTC_REGISTRY in ${ENV_FILE}"
-    exit 1
+if [ "$#" -gt 0 ]; then
+    if [ "$#" -ne 3 ]; then
+        echo "Usage: $0 [image-ref] [username] [password]"
+        echo "Alternatively set BOOTC_IMAGE_REFS plus registry-specific credentials in ${ENV_FILE}"
+        exit 1
+    fi
+
+    IMAGE_REFS=("$1")
+    ARG_USERNAME="$2"
+    ARG_PASSWORD="$3"
+else
+    IMAGE_REFS_STR="${BOOTC_IMAGE_REFS:-${BOOTC_REGISTRY:-}}"
+    if [ -z "$IMAGE_REFS_STR" ]; then
+        echo "Usage: $0 [image-ref] [username] [password]"
+        echo "Alternatively set BOOTC_IMAGE_REFS plus registry-specific credentials in ${ENV_FILE}"
+        exit 1
+    fi
+
+    read -r -a IMAGE_REFS <<< "$IMAGE_REFS_STR"
 fi
 
 OUTPUT_DIR="$REPO_DIR"
 IMG="$OUTPUT_DIR/bootable.img"
+DISK_SIZE="${BOOTC_DISK_SIZE:-20G}"
+SOURCE_IMAGE_REF="${BOOTC_SOURCE_IMAGE_REF:-${IMAGE_REFS[0]}}"
+PUSH_IMAGE_REFS=()
 
-echo "## Creating 20G disk image"
+for image_ref in "${IMAGE_REFS[@]}"; do
+    if registry_has_credentials "$image_ref" "$ARG_USERNAME" "$ARG_PASSWORD"; then
+        PUSH_IMAGE_REFS+=("$image_ref")
+    fi
+done
+
+if [ "${#PUSH_IMAGE_REFS[@]}" -gt 0 ] && [ "${#PUSH_IMAGE_REFS[@]}" -ne "${#IMAGE_REFS[@]}" ]; then
+    for image_ref in "${IMAGE_REFS[@]}"; do
+        registry_auth check "$image_ref" "$ARG_USERNAME" "$ARG_PASSWORD"
+    done
+fi
+
+sudo -v
+
+if registry_has_credentials "$SOURCE_IMAGE_REF" "$ARG_USERNAME" "$ARG_PASSWORD"; then
+    registry_auth podman-login "$SOURCE_IMAGE_REF" "$ARG_USERNAME" "$ARG_PASSWORD"
+fi
+
+echo "## Creating ${DISK_SIZE} disk image"
 if [ ! -e "$IMG" ]; then
-    fallocate -l 20G "$IMG"
+    fallocate -l "$DISK_SIZE" "$IMG"
 fi
 
 echo ""
@@ -48,7 +88,7 @@ sudo podman run \
     -v /etc/containers:/etc/containers \
     -v /dev:/dev \
     -v "$OUTPUT_DIR:/data" \
-    "$REGISTRY:latest" \
+    "$SOURCE_IMAGE_REF:latest" \
     bootc install to-disk \
     --composefs-backend \
     --via-loopback /data/bootable.img \
@@ -60,10 +100,9 @@ echo ""
 echo "## Disk image created: $IMG"
 ls -lh "$IMG"
 
-# Push to registry with oras if credentials provided
-if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+# Push to registries with oras if credentials provided
+if [ "${#PUSH_IMAGE_REFS[@]}" -gt 0 ]; then
     ORAS_VERSION="1.2.2"
-    REGISTRY_HOST="$(echo "$REGISTRY" | cut -d/ -f1)"
 
     if ! command -v oras &> /dev/null; then
         echo ""
@@ -79,16 +118,21 @@ if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
     zstd -f "$IMG" -o "$IMG.zst"
     ls -lh "$IMG.zst"
 
-    echo ""
-    echo "## Pushing disk image to $REGISTRY:disk-latest"
-    oras login "$REGISTRY_HOST" -u "$USERNAME" -p "$PASSWORD"
-    oras push "$REGISTRY:disk-latest" "$IMG.zst:application/octet-stream"
+    for image_ref in "${PUSH_IMAGE_REFS[@]}"; do
+        echo ""
+        echo "## Pushing disk image to ${image_ref}:disk-latest"
+        registry_auth oras-login "$image_ref" "$ARG_USERNAME" "$ARG_PASSWORD"
+        oras push "${image_ref}:disk-latest" "$IMG.zst:application/octet-stream"
+    done
 
     echo ""
     echo "## Cleaning up local files"
     rm -f "$IMG" "$IMG.zst"
 
-    echo "## Done. Disk image pushed to $REGISTRY:disk-latest"
+    echo "## Done. Disk image pushed to:"
+    for image_ref in "${PUSH_IMAGE_REFS[@]}"; do
+        echo "##   ${image_ref}:disk-latest"
+    done
 else
     echo ""
     echo "## Skipping registry push (no credentials provided)"

@@ -9,7 +9,7 @@ shopt -s nullglob
 #   ./flash-disk.sh <registry> <username> <password> [disk]
 #
 # Example:
-#   ./flash-disk.sh registry.goharbor.io/bupd/bootc robot_bupd+bootc Harbor12345 /dev/sda
+#   ./flash-disk.sh ghcr.io/bupd/bootc your-github-username your-ghcr-token /dev/sda
 
 REGISTRY="${1:?Usage: $0 <registry> <username> <password> [disk]}"
 USERNAME="${2:?Usage: $0 <registry> <username> <password> [disk]}"
