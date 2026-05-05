@@ -12,6 +12,7 @@ env:
   BASE_IMAGE_TAG: localhost/arch-bootc-base:latest
   FINAL_IMAGE_TAG: localhost/arch-bootc-hetzner:latest
   CHUNKED_IMAGE_TAG: localhost/arch-bootc-hetzner-chunked:latest
+  CHUNKAH_VERSION: v0.4.0
 
 jobs:
   lint:
@@ -50,7 +51,6 @@ jobs:
       - name: Resolve dependency versions
         run: |
           echo "BOOTC_VERSION=$(curl -fsSL https://api.github.com/repos/bootc-dev/bootc/releases/latest | jq -r '.tag_name')" >> "$GITHUB_ENV"
-          echo "CHUNKAH_VERSION=$(curl -fsSL https://api.github.com/repos/coreos/chunkah/releases/latest | jq -r '.tag_name')" >> "$GITHUB_ENV"
 
       - name: Build base image
         run: |

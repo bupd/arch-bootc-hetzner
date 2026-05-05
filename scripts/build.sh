@@ -73,7 +73,7 @@ github_latest_release_tag() {
 }
 
 BOOTC_VERSION="$(github_latest_release_tag bootc-dev/bootc)"
-CHUNKAH_VERSION="$(github_latest_release_tag coreos/chunkah)"
+CHUNKAH_VERSION="${CHUNKAH_VERSION:-v0.4.0}"
 
 if [ -z "$BOOTC_VERSION" ] || [ "$BOOTC_VERSION" = "null" ]; then
     echo "ERROR: failed to resolve latest bootc release"
