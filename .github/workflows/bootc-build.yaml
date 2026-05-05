@@ -8,7 +8,6 @@ on:
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/bootc
-  DOCKERHUB_IMAGE: docker.io/${{ vars.DOCKERHUB_NAMESPACE || github.repository_owner }}/bootc
   BASE_IMAGE_TAG: localhost/arch-bootc-base:latest
   FINAL_IMAGE_TAG: localhost/arch-bootc-hetzner:latest
   CHUNKED_IMAGE_TAG: localhost/arch-bootc-hetzner-chunked:latest
@@ -87,11 +86,9 @@ jobs:
 
       - name: Publish image
         env:
-          BOOTC_IMAGE_REFS: ${{ env.GHCR_IMAGE }} ${{ env.DOCKERHUB_IMAGE }}
+          BOOTC_IMAGE_REFS: ${{ env.GHCR_IMAGE }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: ./scripts/build.sh
 
   disk:
@@ -110,10 +107,8 @@ jobs:
 
       - name: Generate and publish disk image
         env:
-          BOOTC_IMAGE_REFS: ${{ env.GHCR_IMAGE }} ${{ env.DOCKERHUB_IMAGE }}
+          BOOTC_IMAGE_REFS: ${{ env.GHCR_IMAGE }}
           BOOTC_DISK_SIZE: 40G
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || vars.DOCKERHUB_NAMESPACE || github.repository_owner }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: ./scripts/generate-disk.sh

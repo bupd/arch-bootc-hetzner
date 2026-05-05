@@ -9,7 +9,6 @@ set -euo pipefail
 # Example:
 #   ./scripts/build.sh
 #   ./scripts/build.sh ghcr.io/bupd/bootc your-github-username your-ghcr-token
-#   BOOTC_IMAGE_REFS="ghcr.io/bupd/bootc docker.io/bupd/bootc" ./scripts/build.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
