@@ -10,7 +10,6 @@ set -euo pipefail
 # Example:
 #   ./scripts/generate-disk.sh
 #   ./scripts/generate-disk.sh ghcr.io/bupd/bootc your-github-username your-ghcr-token
-#   BOOTC_IMAGE_REFS="ghcr.io/bupd/bootc docker.io/bupd/bootc" ./scripts/generate-disk.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"

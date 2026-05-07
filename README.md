@@ -52,9 +52,9 @@ Fork this repo and edit the `Containerfile`:
 ### 2. Build
 
 ```sh
-# Build base + custom image and push to GHCR and Docker Hub
+# Build base + custom image and push to GHCR
 cp .env.example .env
-# Edit .env with GHCR and Docker Hub tokens
+# Edit .env with a GHCR token
 ./scripts/build.sh
 
 # One-off single-registry push
@@ -63,14 +63,14 @@ cp .env.example .env
 
 This takes 20-40 minutes (compiles bootc from source with Rust).
 
-GHCR packages are created on first push to `ghcr.io/<owner>/<image>`. For local pushes, use a GitHub token with `write:packages`; for private pulls, it also needs `read:packages`. Docker Hub pushes use a Docker Hub access token.
+GHCR packages are created on first push to `ghcr.io/<owner>/<image>`. For local pushes, use a GitHub token with `write:packages`; for private pulls, it also needs `read:packages`.
 
-GitHub Actions publishes to `ghcr.io/${{ github.repository_owner }}/bootc` and `docker.io/<dockerhub-namespace>/bootc`. Add `DOCKERHUB_TOKEN` as a repository secret; optionally set `DOCKERHUB_NAMESPACE` and `DOCKERHUB_USERNAME` as repository variables if they differ from the GitHub owner.
+GitHub Actions publishes to `ghcr.io/${{ github.repository_owner }}/bootc` using the built-in `GITHUB_TOKEN`.
 
 ### 3. Generate bootable disk image
 
 ```sh
-# Generate disk image, compress, and push to all BOOTC_IMAGE_REFS via oras
+# Generate disk image, compress, and push to configured BOOTC_IMAGE_REFS via oras
 ./scripts/generate-disk.sh
 
 # One-off single-registry push
