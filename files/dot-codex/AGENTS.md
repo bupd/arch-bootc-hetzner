@@ -1,0 +1,1 @@
+../dotfiles/.codex/AGENTS.md
