@@ -1,5 +1,7 @@
 *.img
 k3s
+.claude/
+.opencode/
 .env
 .env.*
 !.env.example
