@@ -149,6 +149,18 @@ sudo bootc upgrade
 sudo reboot
 ```
 
+If a running host still tracks an old registry, switch the tracked image source once:
+
+```sh
+# Use a GitHub token with read:packages if the GHCR package is private.
+printf '%s\n' "$GHCR_TOKEN" | sudo podman login --authfile /etc/ostree/auth.json ghcr.io -u <github-user> --password-stdin
+sudo chmod 0600 /etc/ostree/auth.json
+sudo bootc switch ghcr.io/bupd/bootc:latest
+sudo reboot
+```
+
+After that, `sudo bootc upgrade` pulls from GHCR.
+
 The image now keeps the ESP in sync twice:
 - on every successful boot (`bootc-sync-esp.service`) as a repair path
 - on shutdown after `ostree-finalize-staged.service` (`bootc-sync-esp-finalize.service`) so staged upgrades copy the correct loader state before the next boot
