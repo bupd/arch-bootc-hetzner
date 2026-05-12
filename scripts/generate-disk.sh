@@ -121,7 +121,7 @@ if [ "${#PUSH_IMAGE_REFS[@]}" -gt 0 ]; then
         echo ""
         echo "## Pushing disk image to ${image_ref}:disk-latest"
         registry_auth oras-login "$image_ref" "$ARG_USERNAME" "$ARG_PASSWORD"
-        oras push "${image_ref}:disk-latest" "$IMG.zst:application/octet-stream"
+        (cd "$OUTPUT_DIR" && oras push "${image_ref}:disk-latest" "$(basename "$IMG").zst:application/octet-stream")
     done
 
     echo ""

@@ -8,7 +8,7 @@ set -euo pipefail
 #
 # Example:
 #   ./scripts/build.sh
-#   ./scripts/build.sh ghcr.io/bupd/bootc your-github-username your-ghcr-token
+#   ./scripts/build.sh ghcr.io/bupd/bootc bupd "$(gh auth token)"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
@@ -50,6 +50,14 @@ else
     read -r -a IMAGE_REFS <<< "$IMAGE_REFS_STR"
 fi
 
+GITHUB_API_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${GHCR_TOKEN:-}}}"
+if [ -z "$GITHUB_API_TOKEN" ] && [ -n "$ARG_PASSWORD" ] && [ "$(registry_host "${IMAGE_REFS[0]}")" = "ghcr.io" ]; then
+    GITHUB_API_TOKEN="$ARG_PASSWORD"
+fi
+if [ -z "$GITHUB_API_TOKEN" ] && command -v gh >/dev/null 2>&1; then
+    GITHUB_API_TOKEN="$(gh auth token 2>/dev/null || true)"
+fi
+
 BASE_IMAGE_TAG="localhost/arch-bootc-base:latest"
 FINAL_IMAGE_TAG="localhost/arch-bootc-hetzner:latest"
 CHUNKED_IMAGE_TAG="localhost/arch-bootc-hetzner-chunked:latest"
@@ -68,7 +76,13 @@ trap cleanup EXIT
 
 github_latest_release_tag() {
     local repo="$1"
-    curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name'
+    local -a curl_args=(-fsSL)
+
+    if [ -n "$GITHUB_API_TOKEN" ]; then
+        curl_args+=(-H "Authorization: Bearer ${GITHUB_API_TOKEN}")
+    fi
+
+    curl "${curl_args[@]}" "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name'
 }
 
 BOOTC_VERSION="$(github_latest_release_tag bootc-dev/bootc)"
