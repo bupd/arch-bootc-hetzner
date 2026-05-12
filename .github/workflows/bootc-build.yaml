@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: /var/lib/containers/storage
-          key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'scripts/build.sh', 'files/**', '.github/workflows/bootc-build.yaml') }}
+          key: podman-build-${{ hashFiles('Containerfile', 'Containerfile.base', 'scripts/build.sh', '.github/workflows/bootc-build.yaml') }}
           restore-keys: |
             podman-build-
 
