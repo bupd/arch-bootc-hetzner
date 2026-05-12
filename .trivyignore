@@ -1,0 +1,12 @@
+# bootc images are booted hosts, not app containers. bootc docs say USER
+# metadata is ignored at runtime and services should run unprivileged directly.
+AVD-DS-0002
+
+# HEALTHCHECK is Docker-specific metadata. bootc docs say no outer container
+# runtime exists after deployment, so host health must be handled separately.
+AVD-DS-0026
+
+# This repo intentionally tracks rolling Arch/bootc base images; pinning a
+# digest would break the update model. The build script still controls the
+# bootc source version through BOOTC_VERSION.
+AVD-DS-0001
