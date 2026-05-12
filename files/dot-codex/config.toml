@@ -1,0 +1,26 @@
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+notify = ["/var/home/bupd/.config/tmux/cmux-codex-hook.sh"]
+[projects."/var/home/bupd/code/arch-bootc-hetzner"]
+trust_level = "trusted"
+
+[projects."/var/home/bupd/code/ks"]
+trust_level = "trusted"
+
+[projects."/var/home/bupd/code/OSS"]
+trust_level = "trusted"
+
+[projects."/var/home/bupd"]
+trust_level = "trusted"
+
+[projects."/var/home/bupd/code/OSS/aur/update/dagger-git"]
+trust_level = "trusted"
+
+[notice.model_migrations]
+"gpt-5.3-codex" = "gpt-5.4"
+
+[tui]
+theme = "monokai-extended-origin"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 4
