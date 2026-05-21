@@ -184,25 +184,24 @@ RUN printf '[user]\n\tname = bupd\n\temail = bupdprasanth@gmail.com\n\tsigningke
 # Pre-create agent config dirs as real dirs so stow merges into them (not dir-level symlinks)
 RUN mkdir -p /var/home/bupd/.claude/skills /var/home/bupd/.codex/skills && \
     git clone https://github.com/bupd/dotfiles.git /var/home/bupd/dotfiles && \
-    cd /var/home/bupd/dotfiles && \
     stow -d /var/home/bupd/dotfiles -t /var/home/bupd . && \
     chown -R bupd:bupd /var/home/bupd
 
-# Claude Code + Codex: settings, agents, skills (self-contained in bootc repo)
+# Claude Code + Codex + OpenCode: settings, agents, skills (self-contained in bootc repo)
 COPY files/claude-settings.json /var/home/bupd/.claude/settings.json
 COPY files/dot-claude/agents/ /var/home/bupd/.claude/agents/
 COPY files/dot-claude/skills/ /var/home/bupd/.claude/skills/
-COPY files/dot-agents/skills/ /var/home/bupd/.codex/skills/
-RUN cd /var/home/bupd/.claude/skills && \
-    ln -sf ../../.codex/skills/find-skills find-skills && \
-    ln -sf ../../.codex/skills/go go && \
-    ln -sf ../../.codex/skills/helm-chart helm-chart && \
-    ln -sf ../../.codex/skills/remotion-best-practices remotion-best-practices && \
-    ln -sf ../../.codex/skills/systemd systemd && \
-    ln -sf ../../.codex/skills/taskfile taskfile && \
-    mkdir -p /var/home/bupd/.agents && \
-    ln -sfn ../.codex/skills /var/home/bupd/.agents/skills && \
-    chown -R bupd:bupd /var/home/bupd/.claude /var/home/bupd/.codex /var/home/bupd/.agents
+COPY files/dot-agents/ /var/home/bupd/.agents/
+COPY files/dot-codex/ /var/home/bupd/.codex/
+COPY files/dot-opencode/ /var/home/bupd/.opencode/
+RUN ln -sf ../../.codex/skills/find-skills /var/home/bupd/.claude/skills/find-skills && \
+    ln -sf ../../.codex/skills/go /var/home/bupd/.claude/skills/go && \
+    ln -sf ../../.codex/skills/helm-chart /var/home/bupd/.claude/skills/helm-chart && \
+    ln -sf ../../.codex/skills/remotion-best-practices /var/home/bupd/.claude/skills/remotion-best-practices && \
+    ln -sf ../../.codex/skills/systemd /var/home/bupd/.claude/skills/systemd && \
+    ln -sf ../../.codex/skills/taskfile /var/home/bupd/.claude/skills/taskfile && \
+    npm ci --prefix /var/home/bupd/.opencode --omit=dev && \
+    chown -R bupd:bupd /var/home/bupd/.claude /var/home/bupd/.codex /var/home/bupd/.agents /var/home/bupd/.opencode
 
 # Server-specific sessionizer (overrides dotfiles version with correct paths)
 COPY files/sessionizer /var/home/bupd/sessionizer
