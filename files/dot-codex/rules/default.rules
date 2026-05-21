@@ -1,0 +1,5 @@
+prefix_rule(pattern=["/var/home/bupd/.codex/skills/.system/skill-installer/scripts/list-skills.py"], decision="allow")
+prefix_rule(pattern=["git", "add", "Containerfile", "scripts/post-boot.sh"], decision="allow")
+prefix_rule(pattern=["git", "push", "origin", "main"], decision="allow")
+prefix_rule(pattern=["git", "fetch", "origin", "main"], decision="allow")
+prefix_rule(pattern=["helm"], decision="allow")
