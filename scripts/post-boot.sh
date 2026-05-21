@@ -73,8 +73,14 @@ check_any "codex skills" \
     "$TARGET_HOME/.codex/skills" \
     "$TARGET_HOME/.agents/skills" \
     "$TARGET_HOME/dotfiles/bootc/files/dot-agents/skills"
+check_any "opencode skills" \
+    "$TARGET_HOME/.opencode/skills" \
+    "$TARGET_HOME/.agents/skills" \
+    "$TARGET_HOME/dotfiles/bootc/files/dot-agents/skills"
 check_any "agents config" \
     "$TARGET_HOME/.agents/AGENTS.md"
+check_any "skills registry" \
+    "$TARGET_HOME/.agents/skills/registry.json"
 check_any "codex config" \
     "$TARGET_HOME/.codex/config.toml"
 check_any "opencode config" \
