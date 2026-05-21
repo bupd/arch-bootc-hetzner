@@ -18,7 +18,7 @@ See `~/.agents/harbor-worktree-rules.md` for full details. Summary:
 
 Harbor (`~/code/OSS/harbor/`) is a bare repo with worktrees named `{remote}-{description}`. The prefix before the first `-` IS the push target remote. Derive: `basename "$PWD" | cut -d'-' -f1`
 
-- `8gcr-*` -> `8gcr` (**PRIVATE**) | `next-*` -> `next` (**PRIVATE**) | `bupd-*` -> `bupd` (fork) | `upstream-*` -> `upstream` (**PUBLIC**) | `glab-*` -> `glab` (**PRIVATE**)
+- `8gcr-*` → `8gcr` (**PRIVATE**) | `next-*` → `next` (**PRIVATE**) | `bupd-*` → `bupd` (fork) | `upstream-*` → `upstream` (**PUBLIC**) | `glab-*` → `glab` (**PRIVATE**)
 
 1. ONLY push to the remote matching the directory prefix.
 2. NEVER push `8gcr` or `next` code to `upstream`.
@@ -41,3 +41,11 @@ gh pr diff <number-or-url> -R <owner/repo> --patch > pr.patch
 ```
 
 For public repositories, `<pr-url>.patch` and `<pr-url>.diff` also work.
+
+## Shared Agent Skills
+
+Shared skills live under `~/.agents/skills/<skill-name>/SKILL.md`. Each skill uses YAML frontmatter with `name` and `description`; optional references, scripts, and assets live beside that `SKILL.md`.
+
+Agents that support skills should index `~/.agents/skills/*/SKILL.md` at session start and autoload a skill when the user's request matches its description. Load only the matching `SKILL.md` first, then load bundled files referenced by that skill as needed.
+
+For Codex, OpenCode, Claude-compatible agents, or custom tools without native skill indexing, use `~/.agents/skills/README.md` and `~/.agents/skills/registry.json` as discovery aids. Do not load every skill body by default.

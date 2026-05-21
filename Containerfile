@@ -194,12 +194,10 @@ COPY files/dot-claude/skills/ /var/home/bupd/.claude/skills/
 COPY files/dot-agents/ /var/home/bupd/.agents/
 COPY files/dot-codex/ /var/home/bupd/.codex/
 COPY files/dot-opencode/ /var/home/bupd/.opencode/
-RUN ln -sf ../../.codex/skills/find-skills /var/home/bupd/.claude/skills/find-skills && \
-    ln -sf ../../.codex/skills/go /var/home/bupd/.claude/skills/go && \
-    ln -sf ../../.codex/skills/helm-chart /var/home/bupd/.claude/skills/helm-chart && \
-    ln -sf ../../.codex/skills/remotion-best-practices /var/home/bupd/.claude/skills/remotion-best-practices && \
-    ln -sf ../../.codex/skills/systemd /var/home/bupd/.claude/skills/systemd && \
-    ln -sf ../../.codex/skills/taskfile /var/home/bupd/.claude/skills/taskfile && \
+RUN for skill in /var/home/bupd/.agents/skills/*/SKILL.md; do \
+        name="$(basename "$(dirname "$skill")")"; \
+        ln -sf "../../.agents/skills/$name" "/var/home/bupd/.claude/skills/$name"; \
+    done && \
     npm ci --prefix /var/home/bupd/.opencode --omit=dev && \
     chown -R bupd:bupd /var/home/bupd/.claude /var/home/bupd/.codex /var/home/bupd/.agents /var/home/bupd/.opencode
 
