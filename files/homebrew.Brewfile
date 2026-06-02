@@ -1,1 +1,2 @@
 brew "opencode"
+brew "vhs"
