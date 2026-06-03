@@ -241,7 +241,7 @@ sshd, systemd-networkd, systemd-resolved, systemd-timesyncd, tailscaled, qemu-gu
 - Homebrew is installed into `/home/linuxbrew/.linuxbrew` to keep it in the writable user space layer
 - `/etc/profile.d/homebrew.sh` exposes `brew` in login shells without relying on a user-specific shell rc file
 - `ensure-homebrew.service` bootstraps Homebrew and applies the managed Brewfile on boot
-- The managed Brewfile currently installs `opencode` and `vhs`
+- The managed Brewfile tracks host Homebrew formulae, casks, Go tools, and npm packages
 
 ### Security
 - Root login disabled
