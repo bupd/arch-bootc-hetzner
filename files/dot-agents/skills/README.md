@@ -29,3 +29,7 @@ Installed from `mattpocock/skills`:
 - `to-prd` - Turn conversation context into a PRD.
 - `zoom-out` - Explain code at a higher abstraction level.
 - `prototype` - Build throwaway prototypes for logic or UI questions.
+
+## Other Shared Skills
+
+- `stack` - Use the local squash-safe `stack` CLI for stacked PR repair.
