@@ -123,6 +123,14 @@ jobs:
         if: inputs.existing_digest != ''
         run: sudo apt-get update && sudo apt-get install -y skopeo
 
+      - name: Login to GHCR for metadata publication
+        if: inputs.existing_digest != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | docker login ghcr.io \
+            -u "${GITHUB_ACTOR}" --password-stdin
+
       - name: Setup bootc build runner
         if: inputs.existing_digest == ''
         uses: projectbluefin/actions/bootc-build/setup-runner@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
