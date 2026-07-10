@@ -78,12 +78,15 @@ The CI publish path uses the non-Fedora composite actions from
 - `setup-runner` prepares BTRFS-backed container storage and current OCI tooling.
 - `chunka` groups files using ownership generated from the installed ALPM database.
 - `push-image` preserves chunk metadata and captures the published digest.
-- `sign-and-publish` signs the digest, attaches an SPDX SBOM, and publishes build provenance.
+- `sign-and-publish` signs the digest and attaches the SPDX SBOM through ORAS.
+- `attest-build-provenance` publishes provenance independently of the SBOM size.
 
 The workflow fails if the attached SBOM has no `pkg:alpm/` packages or if the
-published image has no `ostree.components` layer annotations. Pacman's database
-is stored at `/usr/lib/sysimage/var/lib/pacman`, retaining the canonical
-`var/lib/pacman` suffix expected by standard ALPM catalogers.
+published image has no zstd:chunked layer metadata. Pacman's database is stored
+at `/usr/lib/sysimage/var/lib/pacman`, retaining the canonical `var/lib/pacman`
+suffix expected by standard ALPM catalogers. The SBOM is attached directly as
+an OCI artifact because GitHub's SBOM attestation endpoint rejects documents
+larger than 16 MiB; build provenance is still published as a GitHub attestation.
 
 ### 3. Generate bootable disk image
 

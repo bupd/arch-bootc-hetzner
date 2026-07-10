@@ -11,6 +11,11 @@ on:
         required: true
         default: sbom-test
         type: string
+      existing_digest:
+        description: Optional existing GHCR digest to sign and attach metadata to
+        required: false
+        default: ""
+        type: string
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/bootc
@@ -114,7 +119,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Install metadata publication dependencies
+        if: inputs.existing_digest != ''
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
       - name: Setup bootc build runner
+        if: inputs.existing_digest == ''
         uses: projectbluefin/actions/bootc-build/setup-runner@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
         with:
           storage-backend: btrfs
@@ -149,6 +159,7 @@ jobs:
           echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${GITHUB_OUTPUT}"
 
       - name: Build base image
+        if: inputs.existing_digest == ''
         run: |
           sudo podman build --pull=always --network=host \
             --build-arg "BOOTC_VERSION=${{ steps.metadata.outputs.bootc-version }}" \
@@ -157,6 +168,7 @@ jobs:
             .
 
       - name: Build final image
+        if: inputs.existing_digest == ''
         run: |
           sudo podman build --network=host \
             --build-arg "BASE_IMAGE=${BASE_IMAGE_TAG}" \
@@ -168,6 +180,7 @@ jobs:
             .
 
       - name: Generate ALPM component ownership
+        if: inputs.existing_digest == ''
         env:
           MANIFEST_PATH: ${{ runner.temp }}/alpm-components.tsv
         run: |
@@ -186,6 +199,7 @@ jobs:
           test "$(grep -cv '^#' "${MANIFEST_PATH}")" -gt 0
 
       - name: Rechunk image with ALPM components
+        if: inputs.existing_digest == ''
         uses: projectbluefin/actions/bootc-build/chunka@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
         with:
           source-image: localhost/arch-bootc-hetzner:latest
@@ -194,12 +208,14 @@ jobs:
           xattr-manifest: ${{ runner.temp }}/alpm-components.tsv
 
       - name: Export image for vulnerability scan
+        if: inputs.existing_digest == ''
         run: |
           sudo podman save --format docker-archive \
             -o "${RUNNER_TEMP}/scan-image.tar" \
             "bootc:${{ steps.metadata.outputs.tag }}"
 
       - name: Scan image
+        if: inputs.existing_digest == ''
         continue-on-error: true
         uses: projectbluefin/actions/bootc-build/scan-image@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
         with:
@@ -211,6 +227,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push image
+        if: inputs.existing_digest == ''
         id: push
         uses: projectbluefin/actions/bootc-build/push-image@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
         with:
@@ -219,23 +236,47 @@ jobs:
           default-tag: ${{ steps.metadata.outputs.tag }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sign image, attach SBOM, and publish provenance
+      - name: Resolve published digest
+        id: subject
+        env:
+          EXISTING_DIGEST: ${{ inputs.existing_digest }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          digest="${EXISTING_DIGEST:-${PUSHED_DIGEST}}"
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Invalid image digest: ${digest}" >&2
+            exit 1
+          fi
+          skopeo inspect "docker://${GHCR_IMAGE}@${digest}" >/dev/null
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sign image and attach SBOM
         id: publish-metadata
         uses: projectbluefin/actions/bootc-build/sign-and-publish@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
         with:
           image: ${{ env.GHCR_IMAGE }}
-          digest: ${{ steps.push.outputs.digest }}
+          digest: ${{ steps.subject.outputs.digest }}
           signing-mode: keyless
           generate-sbom: "true"
-          push-attestation: "true"
+          # actions/attest rejects SPDX documents larger than 16 MiB. ORAS has no
+          # such limit and remains the canonical SBOM attachment for this image.
+          push-attestation: "false"
           github-token: ${{ secrets.GITHUB_TOKEN }}
           syft-version: v1.46.0
           image-name: bootc
           certificate-identity-regexp: '^https://github\.com/bupd/arch-bootc-hetzner/\.github/workflows/bootc-build\.yaml@'
 
+      - name: Publish build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.GHCR_IMAGE }}
+          subject-digest: ${{ steps.subject.outputs.digest }}
+          push-to-registry: true
+
       - name: Verify published metadata and ALPM SBOM
         env:
-          DIGEST: ${{ steps.push.outputs.digest }}
+          DIGEST: ${{ steps.subject.outputs.digest }}
           SBOM_DIGEST: ${{ steps.publish-metadata.outputs.sbom-digest }}
         run: |
           set -euo pipefail
@@ -246,10 +287,12 @@ jobs:
             .["org.opencontainers.image.title"] == "Arch Linux bootc for Hetzner"
           ' <<< "${labels}"
 
-          component_layers="$(skopeo inspect --raw "docker://${image}" | jq '
-            [.layers[]? | select(.annotations["ostree.components"] != null)] | length
+          chunked_layers="$(skopeo inspect --raw "docker://${image}" | jq '
+            [.layers[]? | select(
+              .annotations["io.github.containers.zstd-chunked.manifest-checksum"] != null
+            )] | length
           ')"
-          test "${component_layers}" -gt 0
+          test "${chunked_layers}" -gt 0
 
           sbom_dir="${RUNNER_TEMP}/attached-sbom"
           mkdir -p "${sbom_dir}"
@@ -260,7 +303,7 @@ jobs:
               (.referenceLocator // "") | startswith("pkg:alpm/")))] | length
           ' "${sbom}")"
           test "${alpm_packages}" -gt 0
-          echo "Published ${alpm_packages} ALPM packages across ${component_layers} component layers" \
+          echo "Published ${alpm_packages} ALPM packages across ${chunked_layers} chunked layers" \
             | tee -a "${GITHUB_STEP_SUMMARY}"
 
   disk:
