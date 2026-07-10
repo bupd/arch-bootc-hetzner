@@ -1,4 +1,6 @@
 *.img
+*.pyc
+__pycache__/
 k3s
 .claude/
 .opencode/

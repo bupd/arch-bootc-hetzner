@@ -31,6 +31,7 @@ Containerfile.base      # bootcrew/arch-bootc base (compiles bootc from source)
 Containerfile           # Your custom image (packages, users, dotfiles, SSH keys)
 scripts/
   build.sh              # Build and push container image to registry
+  generate-alpm-component-manifest.py # Map installed ALPM files for chunkah
   generate-disk.sh      # Generate bootable.img and push via oras
   flash-disk.sh         # Flash disk from Hetzner rescue mode (handles EFI fix)
   verify-disk.sh        # Verify disk setup before rebooting
@@ -59,13 +60,30 @@ cp .env.example .env
 
 # One-off single-registry push
 ./scripts/build.sh ghcr.io/bupd/bootc your-github-username your-ghcr-token
+
+# Publish an isolated test tag instead of replacing latest
+BOOTC_IMAGE_TAG=sbom-test ./scripts/build.sh \
+  ghcr.io/bupd/bootc your-github-username your-ghcr-token
 ```
 
 This takes 20-40 minutes (compiles bootc from source with Rust).
 
 GHCR packages are created on first push to `ghcr.io/<owner>/<image>`. For local pushes, use a GitHub token with `write:packages`; for private pulls, it also needs `read:packages`.
 
-GitHub Actions publishes to `ghcr.io/${{ github.repository_owner }}/bootc` using the built-in `GITHUB_TOKEN`.
+GitHub Actions publishes to `ghcr.io/${{ github.repository_owner }}/bootc` using the built-in `GITHUB_TOKEN`. Main-branch pushes publish `latest`; manually dispatched workflows require an explicit test tag.
+
+The CI publish path uses the non-Fedora composite actions from
+[`projectbluefin/actions`](https://github.com/projectbluefin/actions):
+
+- `setup-runner` prepares BTRFS-backed container storage and current OCI tooling.
+- `chunka` groups files using ownership generated from the installed ALPM database.
+- `push-image` preserves chunk metadata and captures the published digest.
+- `sign-and-publish` signs the digest, attaches an SPDX SBOM, and publishes build provenance.
+
+The workflow fails if the attached SBOM has no `pkg:alpm/` packages or if the
+published image has no `ostree.components` layer annotations. Pacman's database
+is stored at `/usr/lib/sysimage/var/lib/pacman`, retaining the canonical
+`var/lib/pacman` suffix expected by standard ALPM catalogers.
 
 ### 3. Generate bootable disk image
 

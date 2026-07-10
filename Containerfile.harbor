@@ -35,7 +35,7 @@ ARG HELM_CHART_VERSION=1.18.3
 
 # Required packages (base image already has skopeo)
 RUN --mount=type=tmpfs,dst=/tmp \
-    --mount=type=cache,dst=/usr/lib/sysimage/cache/pacman \
+    --mount=type=cache,dst=/usr/lib/sysimage/var/cache/pacman \
     pacman -Syu --noconfirm curl helm jq && \
     pacman -S --clean --noconfirm
 

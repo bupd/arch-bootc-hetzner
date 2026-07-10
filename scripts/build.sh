@@ -61,6 +61,7 @@ fi
 BASE_IMAGE_TAG="localhost/arch-bootc-base:latest"
 FINAL_IMAGE_TAG="localhost/arch-bootc-hetzner:latest"
 CHUNKED_IMAGE_TAG="localhost/arch-bootc-hetzner-chunked:latest"
+IMAGE_TAG="${BOOTC_IMAGE_TAG:-latest}"
 CHUNKAH_ARCHIVE_PATH="$(mktemp "${REPO_DIR}/chunkah-XXXXXX.ociarchive")"
 SOURCE_CID=""
 
@@ -86,7 +87,7 @@ github_latest_release_tag() {
 }
 
 BOOTC_VERSION="$(github_latest_release_tag bootc-dev/bootc)"
-CHUNKAH_VERSION="${CHUNKAH_VERSION:-v0.4.0}"
+CHUNKAH_VERSION="${CHUNKAH_VERSION:-v0.6.0}"
 
 if [ -z "$BOOTC_VERSION" ] || [ "$BOOTC_VERSION" = "null" ]; then
     echo "ERROR: failed to resolve latest bootc release"
@@ -98,12 +99,13 @@ if [ -z "$CHUNKAH_VERSION" ] || [ "$CHUNKAH_VERSION" = "null" ]; then
     exit 1
 fi
 
-CHUNKAH_IMAGE="quay.io/coreos/chunkah:${CHUNKAH_VERSION}"
-CHUNKAH_ARGS="${CHUNKAH_ARGS:---max-layers 128}"
+CHUNKAH_IMAGE="${CHUNKAH_IMAGE:-quay.io/coreos/chunkah:${CHUNKAH_VERSION}}"
+CHUNKAH_ARGS="${CHUNKAH_ARGS:---max-layers 128 --prune /sysroot/ --label ostree.commit- --label ostree.final-diffid-}"
 read -r -a CHUNKAH_ARGS_ARR <<< "$CHUNKAH_ARGS"
 
 echo "## Using bootc ${BOOTC_VERSION}"
 echo "## Using chunkah ${CHUNKAH_VERSION}"
+echo "## Publishing image tag ${IMAGE_TAG}"
 
 for image_ref in "${IMAGE_REFS[@]}"; do
     registry_auth check "$image_ref" "$ARG_USERNAME" "$ARG_PASSWORD"
@@ -125,8 +127,14 @@ sudo podman build --pull=always --network=host \
 
 echo ""
 echo "## Building hetzner image"
+IMAGE_CREATED="${IMAGE_CREATED:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+IMAGE_REVISION="${IMAGE_REVISION:-$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}"
+IMAGE_VERSION="${IMAGE_VERSION:-${IMAGE_TAG}}"
 sudo podman build --network=host \
     --build-arg "BASE_IMAGE=${BASE_IMAGE_TAG}" \
+    --build-arg "IMAGE_CREATED=${IMAGE_CREATED}" \
+    --build-arg "IMAGE_REVISION=${IMAGE_REVISION}" \
+    --build-arg "IMAGE_VERSION=${IMAGE_VERSION}" \
     -f "$REPO_DIR/Containerfile" \
     -t "$FINAL_IMAGE_TAG" \
     "$REPO_DIR"
@@ -146,7 +154,7 @@ IMPORTED_IMAGE="$(sudo podman pull "oci-archive:${CHUNKAH_ARCHIVE_PATH}" | tail 
 sudo podman tag "$IMPORTED_IMAGE" "$CHUNKED_IMAGE_TAG"
 
 for image_ref in "${IMAGE_REFS[@]}"; do
-    target_image_tag="${image_ref}:latest"
+    target_image_tag="${image_ref}:${IMAGE_TAG}"
 
     echo ""
     echo "## Pushing to $target_image_tag"
@@ -157,5 +165,5 @@ done
 echo ""
 echo "## Done. Image pushed to:"
 for image_ref in "${IMAGE_REFS[@]}"; do
-    echo "##   ${image_ref}:latest"
+    echo "##   ${image_ref}:${IMAGE_TAG}"
 done
