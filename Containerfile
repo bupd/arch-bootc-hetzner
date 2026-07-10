@@ -1,8 +1,12 @@
 ARG BASE_IMAGE=ghcr.io/bootcrew/arch-bootc:latest
 FROM ${BASE_IMAGE}
 
+ARG IMAGE_CREATED=unknown
+ARG IMAGE_REVISION=unknown
+ARG IMAGE_VERSION=dev
+
 # Core server + dev packages
-RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/cache/pacman \
+RUN --mount=type=tmpfs,dst=/tmp --mount=type=cache,dst=/usr/lib/sysimage/var/cache/pacman \
     pacman -Syu --noconfirm \
     base-devel \
     bind \
@@ -215,5 +219,15 @@ COPY files/zshrc /var/home/bupd/.zshrc
 COPY files/tmux-bootc.conf /var/home/bupd/.config/tmux/bootc.conf
 RUN chown bupd:bupd /var/home/bupd/.zshrc /var/home/bupd/sessionizer /var/home/bupd/.config/tmux/bootc.conf /var/home/bupd/.local/bin/tmux-osc52-copy
 
-LABEL containers.bootc 1
+LABEL containers.bootc="1" \
+    org.opencontainers.image.title="Arch Linux bootc for Hetzner" \
+    org.opencontainers.image.description="Immutable Arch Linux server image for Hetzner Cloud, delivered with bootc" \
+    org.opencontainers.image.source="https://github.com/bupd/arch-bootc-hetzner" \
+    org.opencontainers.image.documentation="https://github.com/bupd/arch-bootc-hetzner#readme" \
+    org.opencontainers.image.url="https://github.com/bupd/arch-bootc-hetzner" \
+    org.opencontainers.image.vendor="bupd" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.created="${IMAGE_CREATED}" \
+    org.opencontainers.image.revision="${IMAGE_REVISION}" \
+    org.opencontainers.image.version="${IMAGE_VERSION}"
 RUN bootc container lint

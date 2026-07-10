@@ -5,13 +5,22 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag used for an explicit test build
+        required: true
+        default: sbom-test
+        type: string
+      existing_digest:
+        description: Optional existing GHCR digest to sign and attach metadata to
+        required: false
+        default: ""
+        type: string
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/bootc
   BASE_IMAGE_TAG: localhost/arch-bootc-base:latest
   FINAL_IMAGE_TAG: localhost/arch-bootc-hetzner:latest
-  CHUNKED_IMAGE_TAG: localhost/arch-bootc-hetzner-chunked:latest
-  CHUNKAH_VERSION: v0.4.0
 
 jobs:
   lint:
@@ -27,6 +36,9 @@ jobs:
         run: |
           bash -n scripts/*.sh files/setup-repos.sh
           shellcheck scripts/*.sh files/setup-repos.sh
+
+      - name: Validate ALPM component manifest generator
+        run: python3 -m unittest discover -s tests -v
 
   build:
     if: github.event_name == 'pull_request'
@@ -95,27 +107,215 @@ jobs:
 
   publish:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: lint
     permissions:
+      attestations: write
       contents: read
+      id-token: write
       packages: write
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - name: Install publish dependencies
-        run: sudo apt-get update && sudo apt-get install -y podman jq curl
+      - name: Install metadata publication dependencies
+        if: inputs.existing_digest != ''
+        run: sudo apt-get update && sudo apt-get install -y skopeo
 
-      - name: Publish image
+      - name: Login to GHCR for metadata publication
+        if: inputs.existing_digest != ''
         env:
-          BOOTC_IMAGE_REFS: ${{ env.GHCR_IMAGE }}
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/build.sh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | docker login ghcr.io \
+            -u "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Setup bootc build runner
+        if: inputs.existing_digest == ''
+        uses: projectbluefin/actions/bootc-build/setup-runner@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
+        with:
+          storage-backend: btrfs
+          update-podman: "true"
+
+      - name: Resolve build metadata
+        id: metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="${REQUESTED_TAG}"
+          else
+            tag="latest"
+          fi
+          if [[ ! "${tag}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "Invalid OCI tag: ${tag}" >&2
+            exit 1
+          fi
+          bootc_version="$(curl -fsSL \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/bootc-dev/bootc/releases/latest | jq -r '.tag_name')"
+          if [[ -z "${bootc_version}" || "${bootc_version}" == "null" ]]; then
+            echo "Failed to resolve latest bootc release" >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "bootc-version=${bootc_version}" >> "${GITHUB_OUTPUT}"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${GITHUB_OUTPUT}"
+
+      - name: Build base image
+        if: inputs.existing_digest == ''
+        run: |
+          sudo podman build --pull=always --network=host \
+            --build-arg "BOOTC_VERSION=${{ steps.metadata.outputs.bootc-version }}" \
+            -f Containerfile.base \
+            -t "${BASE_IMAGE_TAG}" \
+            .
+
+      - name: Build final image
+        if: inputs.existing_digest == ''
+        run: |
+          sudo podman build --network=host \
+            --build-arg "BASE_IMAGE=${BASE_IMAGE_TAG}" \
+            --build-arg "IMAGE_CREATED=${{ steps.metadata.outputs.created }}" \
+            --build-arg "IMAGE_REVISION=${GITHUB_SHA}" \
+            --build-arg "IMAGE_VERSION=${{ steps.metadata.outputs.tag }}" \
+            -f Containerfile \
+            -t "${FINAL_IMAGE_TAG}" \
+            .
+
+      - name: Generate ALPM component ownership
+        if: inputs.existing_digest == ''
+        env:
+          MANIFEST_PATH: ${{ runner.temp }}/alpm-components.tsv
+        run: |
+          set -euo pipefail
+          cid="$(sudo podman create "${FINAL_IMAGE_TAG}")"
+          cleanup() {
+            sudo podman unmount "${cid}" >/dev/null 2>&1 || true
+            sudo podman rm -f "${cid}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          root="$(sudo podman mount "${cid}")"
+          sudo python3 scripts/generate-alpm-component-manifest.py \
+            --root "${root}" \
+            --output "${MANIFEST_PATH}"
+          sudo chown "$(id -u):$(id -g)" "${MANIFEST_PATH}"
+          test "$(grep -cv '^#' "${MANIFEST_PATH}")" -gt 0
+
+      - name: Rechunk image with ALPM components
+        if: inputs.existing_digest == ''
+        uses: projectbluefin/actions/bootc-build/chunka@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
+        with:
+          source-image: localhost/arch-bootc-hetzner:latest
+          output-image: bootc:${{ steps.metadata.outputs.tag }}
+          max-layers: "128"
+          xattr-manifest: ${{ runner.temp }}/alpm-components.tsv
+
+      - name: Export image for vulnerability scan
+        if: inputs.existing_digest == ''
+        run: |
+          sudo podman save --format docker-archive \
+            -o "${RUNNER_TEMP}/scan-image.tar" \
+            "bootc:${{ steps.metadata.outputs.tag }}"
+
+      - name: Scan image
+        if: inputs.existing_digest == ''
+        continue-on-error: true
+        uses: projectbluefin/actions/bootc-build/scan-image@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
+        with:
+          image: bootc:${{ steps.metadata.outputs.tag }}
+          input: ${{ runner.temp }}/scan-image.tar
+          severity-threshold: CRITICAL
+          exit-code: "0"
+          create-issue: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image
+        if: inputs.existing_digest == ''
+        id: push
+        uses: projectbluefin/actions/bootc-build/push-image@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
+        with:
+          image-name: bootc
+          tags: ${{ steps.metadata.outputs.tag }}
+          default-tag: ${{ steps.metadata.outputs.tag }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve published digest
+        id: subject
+        env:
+          EXISTING_DIGEST: ${{ inputs.existing_digest }}
+          PUSHED_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          digest="${EXISTING_DIGEST:-${PUSHED_DIGEST}}"
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Invalid image digest: ${digest}" >&2
+            exit 1
+          fi
+          skopeo inspect "docker://${GHCR_IMAGE}@${digest}" >/dev/null
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sign image and attach SBOM
+        id: publish-metadata
+        uses: projectbluefin/actions/bootc-build/sign-and-publish@d8f871c0ca7a868339d3c175200a7319492473c7 # v1
+        with:
+          image: ${{ env.GHCR_IMAGE }}
+          digest: ${{ steps.subject.outputs.digest }}
+          signing-mode: keyless
+          generate-sbom: "true"
+          # actions/attest rejects SPDX documents larger than 16 MiB. ORAS has no
+          # such limit and remains the canonical SBOM attachment for this image.
+          push-attestation: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          syft-version: v1.46.0
+          image-name: bootc
+          certificate-identity-regexp: '^https://github\.com/bupd/arch-bootc-hetzner/\.github/workflows/bootc-build\.yaml@'
+
+      - name: Publish build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.GHCR_IMAGE }}
+          subject-digest: ${{ steps.subject.outputs.digest }}
+          push-to-registry: true
+
+      - name: Verify published metadata and ALPM SBOM
+        env:
+          DIGEST: ${{ steps.subject.outputs.digest }}
+          SBOM_DIGEST: ${{ steps.publish-metadata.outputs.sbom-digest }}
+        run: |
+          set -euo pipefail
+          image="${GHCR_IMAGE}@${DIGEST}"
+          labels="$(skopeo inspect "docker://${image}" | jq '.Labels')"
+          jq -e '
+            .["org.opencontainers.image.source"] == "https://github.com/bupd/arch-bootc-hetzner" and
+            .["org.opencontainers.image.title"] == "Arch Linux bootc for Hetzner"
+          ' <<< "${labels}"
+
+          chunked_layers="$(skopeo inspect --raw "docker://${image}" | jq '
+            [.layers[]? | select(
+              .annotations["io.github.containers.zstd-chunked.manifest-checksum"] != null
+            )] | length
+          ')"
+          test "${chunked_layers}" -gt 0
+
+          sbom_dir="${RUNNER_TEMP}/attached-sbom"
+          mkdir -p "${sbom_dir}"
+          oras pull --output "${sbom_dir}" "${GHCR_IMAGE}@${SBOM_DIGEST}"
+          sbom="${sbom_dir}/sbom.json"
+          alpm_packages="$(jq '
+            [.packages[]? | select(any(.externalRefs[]?;
+              (.referenceLocator // "") | startswith("pkg:alpm/")))] | length
+          ' "${sbom}")"
+          test "${alpm_packages}" -gt 0
+          echo "Published ${alpm_packages} ALPM packages across ${chunked_layers} chunked layers" \
+            | tee -a "${GITHUB_STEP_SUMMARY}"
 
   disk:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: publish
     permissions:
