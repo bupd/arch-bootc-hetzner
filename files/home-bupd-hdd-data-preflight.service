@@ -1,0 +1,18 @@
+[Unit]
+Description=Preflight repair for Bupd_Data NTFS volume
+Documentation=man:ntfsfix(8) man:ntfsresize(8)
+DefaultDependencies=no
+Requires=dev-disk-by\x2duuid-ACCA4642CA460952.device
+After=dev-disk-by\x2duuid-ACCA4642CA460952.device
+Before=home-bupd-hdd-data.mount
+ConditionPathExists=/dev/disk/by-uuid/ACCA4642CA460952
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+TimeoutStartSec=5min
+ExecStart=/usr/bin/ntfsfix /dev/disk/by-uuid/ACCA4642CA460952
+ExecStart=/usr/bin/ntfsfix -d /dev/disk/by-uuid/ACCA4642CA460952
+ExecStart=/usr/bin/ntfsresize --check /dev/disk/by-uuid/ACCA4642CA460952
+StandardOutput=journal
+StandardError=journal
